@@ -1,0 +1,14 @@
+{
+  "name": "Cajas JP",
+  "short_name": "Cajas JP",
+  "description": "Recepción, despacho y entrega de las cajas de filtros de JPMetals",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#faf7f2",
+  "theme_color": "#831843",
+  "icons": [
+    {"src": "icono-180.png", "sizes": "180x180", "type": "image/png"},
+    {"src": "icono-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+  ]
+}

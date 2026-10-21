@@ -1,0 +1,542 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#831843">
+<meta name="robots" content="noindex, nofollow">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Cajas JP">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icono-180.png">
+<link rel="icon" href="icono-180.png">
+<title>Cajas JP</title>
+<!--
+  Cajas JP — recepción, despacho y entrega de cada caja de filtros de JPMetals (Isi, 21-oct-2026).
+  Esta página no tiene datos ni llaves: todo pasa por la función «cajas» de Supabase, que pide el login
+  de cada persona (código de acceso → sesión guardada en el teléfono). Fuente: ~/JPMetals/cajas_app.
+-->
+<style>
+:root{--vino:#831843;--vino2:#9d174d;--fondo:#faf7f2;--tarjeta:#fff;--tinta:#1c1917;--suave:#78716c;--linea:#e7e5e4;
+  --ok:#047857;--okf:#ecfdf5;--aviso:#b45309;--avisof:#fffbeb;--mal:#b91c1c;--malf:#fef2f2;--azul:#1d4ed8;--azulf:#eff6ff}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--fondo);color:var(--tinta);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+body{padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom))}
+[hidden]{display:none!important}
+header{position:sticky;top:0;z-index:5;background:var(--vino);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;margin-top:calc(-1 * env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
+header h1{font-size:18px;margin:0;flex:1}
+header .yo{font-size:13px;opacity:.9;text-align:right}
+header button{background:transparent;border:1px solid #fff6;color:#fff;border-radius:8px;padding:4px 8px;font-size:12px}
+main{padding:14px 16px;max-width:640px;margin:0 auto}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--linea);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
+nav button{flex:1;background:none;border:0;padding:8px 2px 10px;font-size:12px;color:var(--suave)}
+nav button b{display:block;font-size:22px;line-height:1.2}
+nav button.act{color:var(--vino);font-weight:600}
+.tarjeta{background:var(--tarjeta);border:1px solid var(--linea);border-radius:14px;padding:14px;margin-bottom:12px}
+h2{font-size:17px;margin:4px 0 10px}
+h3{font-size:15px;margin:0 0 6px}
+.chico{font-size:13px;color:var(--suave)}
+.fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:600;background:var(--vino);color:#fff;min-height:48px}
+.btn.sec{background:#f5f5f4;color:var(--tinta);border:1px solid var(--linea)}
+.btn.verde{background:var(--ok)}
+.btn.ancho{width:100%}
+.btn:disabled{opacity:.5}
+input,select{font-size:16px;padding:12px;border:1px solid #d6d3d1;border-radius:10px;width:100%;background:#fff;color:var(--tinta)}
+label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
+.modos{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px}
+.modos button{border:1px solid var(--linea);background:#fff;border-radius:10px;padding:10px 4px;font-size:14px;font-weight:600;color:var(--suave)}
+.modos button.act{background:var(--vino);color:#fff;border-color:var(--vino)}
+#visor{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3;margin-bottom:10px}
+#visor video{width:100%;height:100%;object-fit:cover;display:block}
+#visor .marco{position:absolute;inset:18% 22%;border:3px solid #fff9;border-radius:16px}
+#visor .estado{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;color:#fff;font-size:13px;background:#0008}
+.resultado{border-radius:14px;padding:12px 14px;margin-bottom:10px;border:1px solid}
+.resultado.ok{background:var(--okf);border-color:#a7f3d0}
+.resultado.ya{background:var(--azulf);border-color:#bfdbfe}
+.resultado.mal{background:var(--malf);border-color:#fecaca}
+.resultado.cola{background:var(--avisof);border-color:#fde68a}
+.resultado .grande{font-size:20px;font-weight:700}
+.pastilla{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 8px;background:#f5f5f4;color:var(--suave)}
+.p-en_camino{background:#f5f5f4;color:#57534e}.p-recibida{background:var(--azulf);color:var(--azul)}
+.p-despachada{background:var(--avisof);color:var(--aviso)}.p-entregada{background:var(--okf);color:var(--ok)}
+.barra{height:10px;border-radius:5px;background:#f5f5f4;overflow:hidden;display:flex;margin:6px 0}
+.barra i{display:block;height:100%}
+.lista{list-style:none;margin:0;padding:0}
+.lista li{padding:10px 0;border-top:1px solid var(--linea)}
+.lista li:first-child{border-top:0}
+.cola{position:fixed;left:12px;right:12px;bottom:calc(80px + env(safe-area-inset-bottom));background:var(--aviso);color:#fff;border-radius:12px;padding:10px 14px;font-size:14px;z-index:6}
+.aviso{background:var(--avisof);border:1px solid #fde68a;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.codigo-acceso{font:700 28px/1.2 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;padding:10px;background:#f5f5f4;border-radius:10px;margin:8px 0}
+details summary{cursor:pointer;font-size:14px;color:var(--vino);padding:4px 0}
+.leyenda{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--suave)}
+.leyenda span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;background:var(--c)}
+#login{max-width:420px;margin:12vh auto 0;padding:0 20px}
+#login .logo{font-size:56px;text-align:center}
+</style>
+</head>
+<body>
+
+<section id="login" hidden>
+  <div class="logo">📦</div>
+  <h2 style="text-align:center">Cajas JP</h2>
+  <p class="chico" style="text-align:center">Recepción, despacho y entrega de las cajas de filtros de JPMetals.</p>
+  <div class="tarjeta">
+    <label for="codigo">Tu código de acceso (te lo pasa Isi o Rodri)</label>
+    <input id="codigo" autocomplete="one-time-code" autocapitalize="characters" placeholder="ABCD-1234" maxlength="9">
+    <p id="loginError" class="chico" style="color:var(--mal)"></p>
+    <button class="btn ancho" id="entrar">Entrar</button>
+  </div>
+  <p class="chico" style="text-align:center">El código sirve una sola vez; después la app queda abierta en este teléfono.</p>
+</section>
+
+<div id="app" hidden>
+  <header>
+    <h1>📦 Cajas JP</h1>
+    <div class="yo"><span id="yoNombre"></span><br><span id="yoRol" class="chico" style="color:#fff"></span></div>
+  </header>
+  <main id="vista"></main>
+  <nav id="nav"></nav>
+</div>
+<div id="colaAviso" class="cola" hidden></div>
+
+<script src="jsQR.js"></script>
+<script>
+"use strict";
+const API = "https://yoycvohmjstvywhcuunm.supabase.co/functions/v1/cajas";
+const ROL = {admin: "Admin", bodega: "Bodega", chofer: "Chofer"};
+const ESTADO = {en_camino: "En camino", recibida: "En bodega", despachada: "Despachada", entregada: "Entregada"};
+const COLOR = {en_camino: "#d6d3d1", recibida: "#3b82f6", despachada: "#f59e0b", entregada: "#059669"};
+const HOSPITALES = ["Alto Hospicio", "Alto Hospicio 2", "Marga Marga", "Villarrica", "Melipilla", "CCHEN"];
+
+const guardado = {
+  get(k, d) { try { const v = localStorage.getItem("cajasjp." + k); return v === null ? d : JSON.parse(v); } catch { return d; } },
+  set(k, v) { try { localStorage.setItem("cajasjp." + k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem("cajasjp." + k); } catch {} },
+};
+let sesion = guardado.get("sesion", null);
+let yo = guardado.get("yo", null);
+let pestaña = null;
+const $ = (s, el = document) => el.querySelector(s);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
+const hora = (t) => t ? new Date(t).toLocaleString("es-CL", {day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"}) : "";
+const fecha = (t) => t ? new Date(t + (t.length === 10 ? "T12:00:00" : "")).toLocaleDateString("es-CL", {day: "2-digit", month: "short"}) : "";
+
+class SinRed extends Error {}
+async function api(accion, datos = {}) {
+  let r;
+  try {
+    r = await fetch(API, {method: "POST", headers: {"content-type": "application/json"},
+                          body: JSON.stringify({accion, sesion, ...datos})});
+  } catch (e) { throw new SinRed("Sin conexión"); }
+  const j = await r.json().catch(() => ({error: "Respuesta rara del servidor"}));
+  if (r.status === 401 && accion !== "entrar") { cerrarSesion(j.error); throw new Error(j.error); }
+  if (!r.ok) throw new Error(j.error || "Error " + r.status);
+  return j;
+}
+
+// ── cola sin señal: los escaneos se guardan con su hora y suben solos ─────────────────────────
+function cola() { return guardado.get("cola", []); }
+function encolar(op) { const c = cola(); c.push(op); guardado.set("cola", c); mostrarCola(); }
+function mostrarCola() {
+  const n = cola().length, el = $("#colaAviso");
+  el.hidden = !n || !sesion;
+  el.textContent = `📶 ${n} escaneo${n === 1 ? "" : "s"} sin subir: se suben solos cuando vuelva la señal.`;
+}
+let subiendo = false;
+async function subirCola() {
+  if (subiendo || !sesion) return;
+  subiendo = true;
+  try {
+    let c = cola();
+    while (c.length) {
+      const op = c[0];
+      try { await api("marcar", op); }
+      catch (e) { if (e instanceof SinRed) break; op.error = e.message; guardado.set("errores", [...guardado.get("errores", []), op].slice(-50)); }
+      c = cola().slice(1); guardado.set("cola", c);
+    }
+  } finally { subiendo = false; mostrarCola(); }
+}
+addEventListener("online", subirCola);
+setInterval(subirCola, 20000);
+
+// ── login ───────────────────────────────────────────────────────────────────────────────────
+function cerrarSesion(msg) {
+  sesion = null; yo = null; guardado.del("sesion"); guardado.del("yo");
+  pararCamara();
+  $("#app").hidden = true; $("#login").hidden = false; $("#loginError").textContent = msg || "";
+  mostrarCola();
+}
+async function entrar(codigo) {
+  $("#loginError").textContent = "";
+  $("#entrar").disabled = true;
+  try {
+    const r = await api("entrar", {codigo});
+    sesion = r.sesion; yo = r.yo; guardado.set("sesion", sesion); guardado.set("yo", yo);
+    arrancar();
+  } catch (e) { $("#loginError").textContent = e.message; }
+  finally { $("#entrar").disabled = false; }
+}
+$("#entrar").onclick = () => entrar($("#codigo").value);
+$("#codigo").addEventListener("keydown", (e) => { if (e.key === "Enter") entrar($("#codigo").value); });
+
+// ── pestañas por rol ────────────────────────────────────────────────────────────────────────
+const PESTAÑAS = {
+  escanear: {icono: "📷", nombre: "Escanear", roles: ["admin", "bodega", "chofer"], ver: verEscanear},
+  recepcion: {icono: "📋", nombre: "Recepción", roles: ["admin", "bodega"], ver: verRecepcion},
+  viajes: {icono: "🚚", nombre: "Viajes", roles: ["admin", "bodega", "chofer"], ver: verViajes},
+  personas: {icono: "👥", nombre: "Personas", roles: ["admin"], ver: verPersonas},
+};
+function arrancar() {
+  $("#login").hidden = true; $("#app").hidden = false;
+  $("#yoNombre").textContent = yo.nombre;
+  $("#yoRol").innerHTML = `${ROL[yo.rol]} · <a href="#" id="salir" style="color:#fff">salir</a>`;
+  $("#salir").onclick = async (e) => { e.preventDefault(); try { await api("salir"); } catch {} cerrarSesion(); };
+  const mias = Object.entries(PESTAÑAS).filter(([, p]) => p.roles.includes(yo.rol));
+  $("#nav").innerHTML = mias.map(([k, p]) => `<button data-p="${k}"><b>${p.icono}</b>${p.nombre}</button>`).join("");
+  $("#nav").onclick = (e) => { const b = e.target.closest("button"); if (b) ir(b.dataset.p); };
+  api("yo").then((r) => { yo = r; guardado.set("yo", yo); }).catch(() => {});
+  mostrarCola(); subirCola();
+  const c = new URLSearchParams(location.search).get("c") || guardado.get("pendiente", null);
+  guardado.del("pendiente");
+  if (c) { history.replaceState(null, "", location.pathname); verCaja(c); marcarNav(null); }
+  else ir(yo.rol === "chofer" ? "viajes" : guardado.get("pestaña", "escanear"));
+}
+function marcarNav(k) { document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("act", b.dataset.p === k)); }
+function ir(k) {
+  if (!PESTAÑAS[k] || !PESTAÑAS[k].roles.includes(yo.rol)) k = "escanear";
+  pararCamara(); pestaña = k; guardado.set("pestaña", k); marcarNav(k);
+  window.scrollTo(0, 0);
+  PESTAÑAS[k].ver($("#vista"));
+}
+function cargando(el) { el.innerHTML = `<p class="chico">Cargando…</p>`; }
+function fallo(el, e) { el.innerHTML = `<div class="resultado mal">${esc(e.message)}</div>`; }
+
+// ── escáner ─────────────────────────────────────────────────────────────────────────────────
+let flujo = null, bucle = null;
+function pararCamara() {
+  if (bucle) cancelAnimationFrame(bucle), bucle = null;
+  if (flujo) flujo.getTracks().forEach((t) => t.stop()), flujo = null;
+}
+function codigoDe(texto) {
+  const t = String(texto).trim();
+  try { const u = new URL(t); const c = u.searchParams.get("c"); if (c) return c.toUpperCase(); } catch {}
+  const m = /\bE\d+-\d{4}\b/i.exec(t);
+  return m ? m[0].toUpperCase() : null;
+}
+async function abrirCamara(video, estado, alLeer) {
+  pararCamara();
+  try {
+    flujo = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment", width: {ideal: 1280}}, audio: false});
+  } catch (e) { estado.textContent = "No pude abrir la cámara: revisa el permiso en Ajustes o escribe el código abajo."; return; }
+  video.srcObject = flujo; video.setAttribute("playsinline", ""); await video.play();
+  estado.textContent = "Apunta al QR de la etiqueta";
+  const lienzo = document.createElement("canvas"), ctx = lienzo.getContext("2d", {willReadFrequently: true});
+  const detector = "BarcodeDetector" in window ? new BarcodeDetector({formats: ["qr_code"]}) : null;
+  let ultimo = "", ultimoT = 0, ocupado = false;
+  const paso = async () => {
+    if (!flujo) return;
+    if (!ocupado && video.readyState >= 2) {
+      ocupado = true;
+      let texto = null;
+      try {
+        if (detector) { const r = await detector.detect(video); texto = r[0]?.rawValue || null; }
+        else {
+          const w = 640, h = Math.round(640 * video.videoHeight / video.videoWidth);
+          lienzo.width = w; lienzo.height = h; ctx.drawImage(video, 0, 0, w, h);
+          texto = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "dontInvert"})?.data || null;
+        }
+      } catch {}
+      const c = texto && codigoDe(texto);
+      if (c && (c !== ultimo || Date.now() - ultimoT > 4000)) {
+        ultimo = c; ultimoT = Date.now();
+        if (navigator.vibrate) navigator.vibrate(60);
+        await alLeer(c);
+      }
+      ocupado = false;
+    }
+    bucle = requestAnimationFrame(paso);
+  };
+  bucle = requestAnimationFrame(paso);
+}
+
+function tarjetaResultado(clase, titulo, c, extra = "") {
+  return `<div class="resultado ${clase}"><div class="grande">${esc(titulo)}</div>` +
+    (c ? `<div><b>${esc(c.codigo)}</b> · ${esc(c.sku_jp)} · caja ${c.caja_n} de ${c.de_n} · ${c.unidades} u</div>
+          <div class="chico">${esc(c.hospital)} · ${esc(c.sku_compo || "")}</div>` : "") + extra + `</div>`;
+}
+
+function verEscanear(el) {
+  const modos = yo.rol === "chofer" ? ["entregada"] : yo.rol === "bodega" ? ["recibida", "despachada"] : ["recibida", "despachada", "entregada"];
+  let modo = modos.includes(guardado.get("modo")) ? guardado.get("modo") : modos[0];
+  let viaje = guardado.get("viajeEsc", null);
+  let hechos = [];
+  el.innerHTML = `
+    <div class="modos" id="modos">${modos.map((m) => `<button data-m="${m}">${{recibida: "📥 Recibir", despachada: "🚚 Despachar", entregada: "🏥 Entregar"}[m]}</button>`).join("")}</div>
+    <div id="eligeViaje" hidden><label>Viaje</label><select id="selViaje"></select></div>
+    <div id="visor"><video muted></video><div class="marco"></div><div class="estado" id="camEstado">Abriendo cámara…</div></div>
+    <div class="fila" style="flex-wrap:nowrap"><input id="manual" placeholder="o escribe el código: E1-0427" autocapitalize="characters"><button class="btn sec" id="manualOk">OK</button></div>
+    <div id="ultimo" style="margin-top:10px"></div>
+    <div class="tarjeta" id="sesionBox" hidden><h3>En esta pasada</h3><div id="sesionLista" class="chico"></div></div>`;
+  const pintarModo = () => {
+    el.querySelectorAll("#modos button").forEach((b) => b.classList.toggle("act", b.dataset.m === modo));
+    $("#eligeViaje").hidden = modo !== "despachada";
+  };
+  $("#modos").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; modo = b.dataset.m; guardado.set("modo", modo); pintarModo(); };
+  pintarModo();
+  if (modos.includes("despachada")) {
+    api("viajes").then((vs) => {
+      const abiertos = vs.filter((v) => v.estado !== "entregado");
+      $("#selViaje").innerHTML = `<option value="">— elige el viaje —</option>` +
+        abiertos.map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga || "viaje " + v.id)}${v.salida ? " · " + fecha(v.salida) : ""} (${v.cajas} cajas)</option>`).join("");
+      if (viaje && abiertos.some((v) => v.id === viaje)) $("#selViaje").value = viaje;
+      guardado.set("viajes", vs);
+    }).catch(() => {
+      const vs = guardado.get("viajes", []);
+      $("#selViaje").innerHTML = `<option value="">— elige el viaje —</option>` + vs.map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga)}</option>`).join("");
+      if (viaje) $("#selViaje").value = viaje;
+    });
+    $("#selViaje").onchange = () => { viaje = Number($("#selViaje").value) || null; guardado.set("viajeEsc", viaje); };
+  }
+  const resumen = () => {
+    $("#sesionBox").hidden = !hechos.length;
+    const porSku = {};
+    hechos.forEach((h) => { porSku[h.sku] = (porSku[h.sku] || 0) + 1; });
+    $("#sesionLista").innerHTML = `${hechos.length} caja${hechos.length === 1 ? "" : "s"} · ` +
+      Object.entries(porSku).map(([s, n]) => `${esc(s)}: ${n}`).join(" · ");
+  };
+  const leer = async (codigo) => {
+    const u = $("#ultimo");
+    if (modo === "despachada" && !viaje) { u.innerHTML = tarjetaResultado("mal", "Primero elige el viaje"); return; }
+    const op = {codigo, tipo: modo, despacho_id: modo === "despachada" ? viaje : null, en: new Date().toISOString()};
+    try {
+      const c = await api("marcar", op);
+      const verbo = {recibida: "Recibida en bodega", despachada: "Despachada", entregada: "Entregada"}[modo];
+      u.innerHTML = tarjetaResultado(c.ya ? "ya" : "ok", c.ya ? `Ya estaba: ${ESTADO[c.estado]}` : `✓ ${verbo}`, c);
+      if (!c.ya) { hechos.unshift({codigo, sku: c.sku_jp}); resumen(); }
+    } catch (e) {
+      if (e instanceof SinRed) { encolar(op); u.innerHTML = tarjetaResultado("cola", `📶 ${codigo} guardada sin señal`, null, `<div class="chico">Se sube sola cuando vuelva la conexión, con la hora de ahora.</div>`); hechos.unshift({codigo, sku: "sin señal"}); resumen(); }
+      else u.innerHTML = tarjetaResultado("mal", e.message);
+    }
+  };
+  $("#manualOk").onclick = () => { const c = codigoDe($("#manual").value) || $("#manual").value.trim().toUpperCase(); if (c) { leer(c); $("#manual").value = ""; } };
+  $("#manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#manualOk").click(); });
+  abrirCamara($("#visor video"), $("#camEstado"), leer);
+}
+
+// ── una caja (al abrir el QR con la cámara del teléfono) ─────────────────────────────────────
+async function verCaja(codigo) {
+  const el = $("#vista"); cargando(el);
+  try {
+    const c = await api("caja", {codigo});
+    const pasos = [["Recibida en bodega", c.recibida_en, c.recibida_por], ["Despachada" + (c.viaje ? ` · ${c.viaje.hospital} · ${c.viaje.carga || ""}` : ""), c.despachada_en, c.despachada_por],
+                   ["Entregada en el hospital", c.entregada_en, c.entregada_por]];
+    const acciones = [];
+    if (["admin", "bodega"].includes(yo.rol) && c.estado === "en_camino") acciones.push(["recibida", "📥 Marcar recibida"]);
+    if (yo.rol === "admin" && c.estado === "despachada" || yo.rol === "chofer" && c.estado === "despachada") acciones.push(["entregada", "🏥 Marcar entregada"]);
+    el.innerHTML = `<div class="tarjeta">
+      <div class="fila" style="justify-content:space-between"><h2 style="margin:0">${esc(c.codigo)}</h2><span class="pastilla p-${c.estado}">${ESTADO[c.estado]}</span></div>
+      <div style="font-size:22px;font-weight:700;margin-top:6px">${esc(c.sku_jp)}</div>
+      <div>${esc(c.hospital)} · caja ${c.caja_n} de ${c.de_n} · <b>${c.unidades} filtro(s)</b></div>
+      <div class="chico">${esc(c.descripcion || "")}<br>Compo ${esc(c.sku_compo)} · OC COMPO ${esc(c.oc_compo || "—")}</div>
+      <ul class="lista" style="margin-top:10px">${pasos.map(([t, en, por]) => `<li>${en ? "✅" : "⬜"} ${esc(t)}${en ? `<div class="chico">${hora(en)} · ${esc(por)}</div>` : ""}</li>`).join("")}</ul>
+      <div id="accCaja" style="display:grid;gap:8px;margin-top:8px">${acciones.map(([t, n]) => `<button class="btn ancho" data-t="${t}">${n}</button>`).join("")}
+      ${["admin", "bodega"].includes(yo.rol) && c.estado !== "entregada" ? `<button class="btn sec ancho" data-ir="escanear">🚚 Para despachar, usa Escanear → Despachar</button>` : ""}
+      ${yo.rol === "admin" && c.estado !== "en_camino" ? `<button class="btn sec ancho" data-deshacer="1">↩︎ Deshacer el último paso</button>` : ""}</div>
+      <div id="cajaMsg"></div></div>`;
+    $("#accCaja").onclick = async (e) => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.ir) return ir(b.dataset.ir);
+      b.disabled = true;
+      try {
+        if (b.dataset.deshacer) await api("deshacer", {codigo: c.codigo});
+        else await api("marcar", {codigo: c.codigo, tipo: b.dataset.t, en: new Date().toISOString()});
+        verCaja(c.codigo);
+      } catch (er) {
+        if (er instanceof SinRed && b.dataset.t) { encolar({codigo: c.codigo, tipo: b.dataset.t, en: new Date().toISOString()}); $("#cajaMsg").innerHTML = tarjetaResultado("cola", "Guardado sin señal: se sube solo"); }
+        else $("#cajaMsg").innerHTML = tarjetaResultado("mal", er.message);
+        b.disabled = false;
+      }
+    };
+  } catch (e) { fallo(el, e); }
+}
+
+// ── recepción: por embarque, qué está en bodega y qué falta contra el packing ───────────────────
+async function verRecepcion(el) {
+  cargando(el);
+  try {
+    const embs = await api("embarques");
+    let actual = guardado.get("embarque", embs[0]?.id);
+    if (!embs.some((e) => e.id === actual)) actual = embs[0]?.id;
+    el.innerHTML = `<label>Embarque</label><select id="selEmb">${embs.map((e) => `<option value="${e.id}">${esc(e.nombre)} · ${e.total} cajas</option>`).join("")}</select><div id="detEmb" style="margin-top:12px"></div>`;
+    $("#selEmb").value = actual;
+    const pintar = async () => {
+      const id = Number($("#selEmb").value); guardado.set("embarque", id);
+      const e = embs.find((x) => x.id === id), det = $("#detEmb");
+      det.innerHTML = `<p class="chico">Cargando cajas…</p>`;
+      const cajas = await api("embarque", {embarque_id: id});
+      const porH = {};
+      cajas.forEach((c) => { (porH[c.hospital] ??= {}); (porH[c.hospital][c.sku_jp] ??= []).push(c); });
+      const barra = (cs) => { const t = cs.length || 1; return `<div class="barra">${["entregada", "despachada", "recibida", "en_camino"].map((s) => `<i style="width:${100 * cs.filter((c) => c.estado === s).length / t}%;background:${COLOR[s]}"></i>`).join("")}</div>`; };
+      const faltan = cajas.filter((c) => c.estado === "en_camino").length;
+      det.innerHTML = `<div class="tarjeta"><h3>${esc(e.nombre)}</h3>
+        <div class="chico">${e.fecha_disponible_retiro ? "Disponible para retiro " + fecha(e.fecha_disponible_retiro) : e.fecha_eta ? "ETA " + fecha(e.fecha_eta) : ""}</div>
+        ${barra(cajas)}
+        <div class="leyenda">${["recibida", "despachada", "entregada", "en_camino"].map((s) => `<span style="--c:${COLOR[s]}">${ESTADO[s]} ${cajas.filter((c) => c.estado === s).length}</span>`).join("")}</div>
+        ${faltan && faltan < cajas.length ? `<div class="aviso" style="margin-top:10px">⚠️ Faltan <b>${faltan}</b> de ${cajas.length} cajas por recibir. Abajo, por SKU, cuáles son.</div>` : ""}
+        ${!faltan ? `<div class="resultado ok" style="margin-top:10px">✓ Todas las cajas del packing están recibidas.</div>` : ""}</div>` +
+        HOSPITALES.concat(Object.keys(porH).filter((h) => !HOSPITALES.includes(h))).filter((h) => porH[h]).map((h) => {
+          const skus = Object.entries(porH[h]), todas = skus.flatMap(([, cs]) => cs);
+          const rec = todas.filter((c) => c.estado !== "en_camino").length;
+          return `<div class="tarjeta"><div class="fila" style="justify-content:space-between"><h3 style="margin:0">${esc(h)}</h3><span class="chico">${rec} / ${todas.length} recibidas</span></div>${barra(todas)}
+            <ul class="lista">${skus.map(([sku, cs]) => {
+              const r = cs.filter((c) => c.estado !== "en_camino");
+              const falta = cs.filter((c) => c.estado === "en_camino");
+              return `<li><div class="fila" style="justify-content:space-between"><b>${esc(sku)}</b><span>${r.length === cs.length ? "✅" : falta.length === cs.length ? "⬜" : "🟠"} ${r.length}/${cs.length}</span></div>
+                <div class="chico">${esc(cs[0].sku_compo)} · ${cs.reduce((s, c) => s + c.unidades, 0)} filtros</div>
+                ${falta.length && r.length ? `<details><summary>Faltan ${falta.length}: ver cuáles</summary><div class="chico">${falta.map((c) => `${esc(c.codigo)} (caja ${c.caja_n})`).join(" · ")}</div></details>` : ""}</li>`;
+            }).join("")}</ul></div>`;
+        }).join("");
+    };
+    $("#selEmb").onchange = pintar;
+    if (embs.length) pintar(); else el.innerHTML = `<p class="chico">No hay embarques con cajas todavía.</p>`;
+  } catch (e) { fallo(el, e); }
+}
+
+// ── viajes ─────────────────────────────────────────────────────────────────────────────────
+async function verViajes(el) {
+  cargando(el);
+  try {
+    const vs = await api("viajes");
+    guardado.set("viajes", vs);
+    el.innerHTML = (yo.rol === "admin" ? `<details class="tarjeta" id="nuevoViaje"><summary><b>＋ Nuevo viaje</b></summary>
+        <label>Hospital</label><select id="nvH">${HOSPITALES.map((h) => `<option>${h}</option>`).join("")}</select>
+        <label>Nombre del viaje</label><input id="nvC" placeholder="Alto Hospicio · viaje 1">
+        <label>Salida (opcional)</label><input id="nvS" type="date">
+        <label>Quiénes van (opcional)</label><input id="nvP" placeholder="Rodri + Jaime">
+        <button class="btn ancho" id="nvOk" style="margin-top:12px">Crear viaje</button><div id="nvMsg"></div></details>` : "") +
+      (vs.length ? vs.map((v) => `<div class="tarjeta" data-v="${v.id}">
+        <div class="fila" style="justify-content:space-between"><h3 style="margin:0">${esc(v.hospital)} · ${esc(v.carga || "viaje " + v.id)}</h3><span class="pastilla ${v.estado === "entregado" ? "p-entregada" : ""}">${esc(v.estado)}</span></div>
+        <div class="chico">${v.salida ? "Sale " + fecha(v.salida) + " · " : ""}${v.cajas} cajas · ${v.unidades} filtros · ${v.entregadas} entregadas${v.personas ? " · " + esc(v.personas) : ""}${v.guia_foto ? " · 📄 guía" : ""}</div>
+        <button class="btn sec ancho" style="margin-top:8px" data-abrir="${v.id}">Ver cajas</button></div>`).join("")
+        : `<p class="chico">${yo.rol === "chofer" ? "No tienes un viaje asignado." : "Todavía no hay viajes."}</p>`);
+    if (yo.rol === "admin") $("#nvOk").onclick = async () => {
+      try {
+        if (!$("#nvC").value.trim()) throw new Error("Ponle nombre al viaje");
+        await api("crear_viaje", {hospital: $("#nvH").value, carga: $("#nvC").value.trim(), salida: $("#nvS").value, personas: $("#nvP").value.trim()});
+        verViajes(el);
+      } catch (e) { $("#nvMsg").innerHTML = tarjetaResultado("mal", e.message); }
+    };
+    el.onclick = (e) => { const b = e.target.closest("[data-abrir]"); if (b) verViaje(el, Number(b.dataset.abrir), vs.find((v) => v.id === Number(b.dataset.abrir))); };
+  } catch (e) { fallo(el, e); }
+}
+
+async function verViaje(el, id, v) {
+  el.onclick = null; cargando(el);
+  try {
+    const cajas = await api("viaje", {despacho_id: id});
+    const pend = cajas.filter((c) => c.estado === "despachada").length;
+    const puedeEntregar = yo.rol === "admin" || (yo.rol === "chofer" && yo.despacho_id === id);
+    const porSku = {};
+    cajas.forEach((c) => { (porSku[c.sku_jp] ??= []).push(c); });
+    el.innerHTML = `<button class="btn sec" id="volver">← Viajes</button>
+      <div class="tarjeta" style="margin-top:10px"><h2 style="margin:0">${esc(v.hospital)} · ${esc(v.carga || "viaje " + id)}</h2>
+        <div class="chico">${cajas.length} cajas · ${cajas.reduce((s, c) => s + c.unidades, 0)} filtros · ${cajas.length - pend} entregadas</div>
+        ${puedeEntregar && pend ? `<button class="btn verde ancho" id="entregarTodo" style="margin-top:10px">🏥 Entregar las ${pend} cajas de una vez</button>` : ""}
+        ${puedeEntregar ? `<label style="margin-top:12px">📄 Foto de la guía firmada${v.guia_foto ? " (ya hay una; otra la reemplaza)" : ""}</label><input type="file" accept="image/*" capture="environment" id="guia">` : ""}
+        ${yo.rol === "admin" && v.guia_foto ? `<button class="btn sec ancho" id="verGuia" style="margin-top:8px">Ver guía</button>` : ""}
+        <div id="vMsg"></div></div>
+      <div class="tarjeta"><h3>Cajas</h3><ul class="lista">${Object.entries(porSku).map(([s, cs]) => `<li><div class="fila" style="justify-content:space-between"><b>${esc(s)}</b><span class="chico">${cs.filter((c) => c.estado === "entregada").length}/${cs.length} entregadas</span></div>
+        <div class="chico">${cs.map((c) => `${c.estado === "entregada" ? "✅" : "🚚"} ${esc(c.codigo)}`).join(" · ")}</div></li>`).join("") || `<li class="chico">Sin cajas todavía: se cargan en Escanear → Despachar.</li>`}</ul></div>`;
+    $("#volver").onclick = () => verViajes(el);
+    if ($("#entregarTodo")) $("#entregarTodo").onclick = async () => {
+      const b = $("#entregarTodo");
+      if (b.dataset.seguro !== "1") { b.dataset.seguro = "1"; b.textContent = `¿Seguro? Toca otra vez para entregar ${pend} cajas`; return; }
+      b.disabled = true;
+      try { const r = await api("entregar_viaje", {despacho_id: id, en: new Date().toISOString()}); $("#vMsg").innerHTML = tarjetaResultado("ok", `✓ ${r.entregadas} cajas entregadas`); setTimeout(() => verViaje(el, id, v), 900); }
+      catch (e) { $("#vMsg").innerHTML = tarjetaResultado("mal", e.message); b.disabled = false; }
+    };
+    if ($("#guia")) $("#guia").onchange = async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      $("#vMsg").innerHTML = `<p class="chico">Subiendo foto…</p>`;
+      try { await api("guia", {despacho_id: id, imagen: await achicar(f)}); v.guia_foto = "ok"; $("#vMsg").innerHTML = tarjetaResultado("ok", "✓ Guía guardada"); }
+      catch (er) { $("#vMsg").innerHTML = tarjetaResultado("mal", er.message); }
+    };
+    if ($("#verGuia")) $("#verGuia").onclick = async () => { const r = await api("ver_guia", {despacho_id: id}); if (r.url) location.href = r.url; };
+  } catch (e) { fallo(el, e); }
+}
+
+function achicar(file, lado = 1600) {
+  return new Promise((ok, mal) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, lado / Math.max(img.width, img.height));
+      const c = document.createElement("canvas"); c.width = img.width * k; c.height = img.height * k;
+      c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      ok(c.toDataURL("image/jpeg", 0.8));
+    };
+    img.onerror = () => mal(new Error("No pude leer la foto"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// ── personas (admin) ────────────────────────────────────────────────────────────────────────
+async function verPersonas(el) {
+  cargando(el);
+  try {
+    const [gente, vs] = await Promise.all([api("usuarios"), api("viajes")]);
+    const nomViaje = (id) => { const v = vs.find((x) => x.id === id); return v ? `${v.hospital} · ${v.carga}` : "viaje " + id; };
+    el.innerHTML = `<details class="tarjeta" ${gente.length < 2 ? "open" : ""}><summary><b>＋ Invitar a alguien</b></summary>
+        <label>Nombre</label><input id="inN" placeholder="Rodri">
+        <label>Correo o teléfono (solo de referencia)</label><input id="inC">
+        <label>Rol</label><select id="inR"><option value="bodega">Bodega: recibe y despacha</option><option value="chofer">Chofer: solo entrega su viaje</option><option value="admin">Admin: todo</option></select>
+        <div id="inVBox" hidden><label>Viaje del chofer</label><select id="inV">${vs.filter((v) => v.estado !== "entregado").map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga)}</option>`).join("")}</select></div>
+        <button class="btn ancho" id="inOk" style="margin-top:12px">Crear acceso</button><div id="inMsg"></div></details>
+      <div id="acceso"></div>
+      <div class="tarjeta"><h3>Personas</h3><ul class="lista">${gente.map((p) => `<li>
+        <div class="fila" style="justify-content:space-between"><b>${esc(p.nombre)}</b><span class="pastilla">${ROL[p.rol]}${p.activo ? "" : " · desactivada"}</span></div>
+        <div class="chico">${[p.contacto, p.despacho_id && nomViaje(p.despacho_id)].filter(Boolean).map(esc).join(" · ")}</div>
+        ${p.id !== yo.id ? `<div class="fila" style="margin-top:6px"><button class="btn sec" data-cod="${p.id}" data-n="${esc(p.nombre)}">Nuevo código</button>${p.activo ? `<button class="btn sec" data-off="${p.id}">Desactivar</button>` : ""}</div>` : ""}</li>`).join("")}</ul></div>`;
+    $("#inR").onchange = () => { $("#inVBox").hidden = $("#inR").value !== "chofer"; };
+    const mostrarAcceso = (nombre, r) => {
+      const texto = `Hola ${nombre}: este es tu acceso a la app Cajas JP de JPMetals. Ábrelo en tu teléfono: ${r.link}\nSi te pide código: ${r.codigo}\nVale una sola vez y hasta el ${new Date(r.expira).toLocaleDateString("es-CL")}.`;
+      $("#acceso").innerHTML = `<div class="tarjeta" style="border-color:var(--vino)"><h3>Acceso de ${esc(nombre)}</h3>
+        <div class="codigo-acceso">${esc(r.codigo)}</div><div class="chico" style="word-break:break-all">${esc(r.link)}</div>
+        <p class="chico">Mándaselo tú por WhatsApp. Sirve una vez y vence en 7 días; esta pantalla no lo vuelve a mostrar.</p>
+        <div class="fila"><button class="btn" id="compartir">Compartir…</button><button class="btn sec" id="copiar">Copiar</button></div></div>`;
+      $("#compartir").onclick = () => navigator.share ? navigator.share({text: texto}).catch(() => {}) : $("#copiar").click();
+      $("#copiar").onclick = () => navigator.clipboard.writeText(texto).then(() => { $("#copiar").textContent = "✓ Copiado"; });
+      $("#acceso").scrollIntoView({behavior: "smooth"});
+    };
+    $("#inOk").onclick = async () => {
+      try {
+        const nombre = $("#inN").value.trim();
+        const r = await api("invitar", {nombre, contacto: $("#inC").value.trim(), rol: $("#inR").value, despacho_id: $("#inR").value === "chofer" ? Number($("#inV").value) || null : null});
+        await verPersonas(el); mostrarAcceso(nombre, r);
+      } catch (e) { $("#inMsg").innerHTML = tarjetaResultado("mal", e.message); }
+    };
+    el.onclick = async (e) => {
+      const b = e.target.closest("button[data-cod],button[data-off]"); if (!b) return;
+      try {
+        if (b.dataset.cod) { const r = await api("nuevo_codigo", {id: Number(b.dataset.cod)}); mostrarAcceso(b.dataset.n, r); }
+        else {
+          if (b.dataset.seguro !== "1") { b.dataset.seguro = "1"; b.textContent = "¿Seguro? Toca otra vez"; return; }
+          await api("desactivar", {id: Number(b.dataset.off)}); verPersonas(el);
+        }
+      } catch (er) { alert(er.message); }
+    };
+  } catch (e) { fallo(el, e); }
+}
+
+// ── inicio ──────────────────────────────────────────────────────────────────────────────────
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+const acceso = new URLSearchParams(location.search).get("acceso");
+if (!sesion && new URLSearchParams(location.search).get("c")) guardado.set("pendiente", new URLSearchParams(location.search).get("c"));
+if (acceso) {
+  history.replaceState(null, "", location.pathname);
+  if (sesion) arrancar(); else { $("#login").hidden = false; $("#codigo").value = acceso; entrar(acceso); }
+} else if (sesion && yo) arrancar();
+else { $("#login").hidden = false; mostrarCola(); }
+</script>
+</body>
+</html>
