@@ -322,7 +322,20 @@ function verEscanear(el) {
   $("#manualOk").onclick = () => { const c = codigoDe($("#manual").value) || $("#manual").value.trim().toUpperCase(); if (c) { leer(c); $("#manual").value = ""; } };
   $("#manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#manualOk").click(); });
   abrirCamara($("#visor video"), $("#camEstado"), leer);
+  // Pistola lectora Bluetooth (modo teclado): escribe el link del QR + Enter. Se capta aunque no haya
+  // un campo enfocado, mientras esta pantalla esté abierta.
+  let buf = "", ultimaTecla = 0;
+  pistola = (e) => {
+    if (pestaña !== "escanear" || e.target.matches("input,select,textarea")) return;
+    const ahora = Date.now();
+    if (ahora - ultimaTecla > 300) buf = "";
+    ultimaTecla = ahora;
+    if (e.key === "Enter") { const c = codigoDe(buf); buf = ""; if (c) leer(c); }
+    else if (e.key.length === 1) buf += e.key;
+  };
 }
+let pistola = null;
+document.addEventListener("keydown", (e) => pistola && pistola(e));
 
 // ── una caja (al abrir el QR con la cámara del teléfono) ─────────────────────────────────────
 async function verCaja(codigo) {
