@@ -123,13 +123,15 @@ const hora = (t) => t ? new Date(t).toLocaleString("es-CL", {day: "2-digit", mon
 const fecha = (t) => t ? new Date(t + (t.length === 10 ? "T12:00:00" : "")).toLocaleDateString("es-CL", {day: "2-digit", month: "short"}) : "";
 
 class SinRed extends Error {}
-async function api(accion, datos = {}) {
+async function api(accion, datos = {}, intento = 1) {
   let r;
   try {
     r = await fetch(API, {method: "POST", headers: {"content-type": "application/json"},
                           body: JSON.stringify({accion, sesion, ...datos})});
   } catch (e) { throw new SinRed("Sin conexión"); }
   const j = await r.json().catch(() => ({error: "Respuesta rara del servidor"}));
+  // La primera llamada tras un rato sin uso a veces llega con «Gateway Timeout» (servidor frío): un reintento.
+  if (intento === 1 && (r.status >= 500 || /timeout/i.test(j.error || ""))) return api(accion, datos, 2);
   if (r.status === 401 && accion !== "entrar") { cerrarSesion(j.error); throw new Error(j.error); }
   if (!r.ok) throw new Error(j.error || "Error " + r.status);
   return j;
