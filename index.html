@@ -108,6 +108,7 @@ header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
 <div id="app" hidden>
   <header>
     <h1>📦 Cajas JP</h1>
+    <button class="ayuda" id="btnOtro" aria-label="Abrir en otro teléfono">📱</button>
     <button class="ayuda" id="btnAyuda" aria-label="Cómo se usa">?</button>
     <div class="yo"><span id="yoNombre"></span><br><span id="yoRol" class="chico" style="color:#fff"></span></div>
   </header>
@@ -219,6 +220,7 @@ function arrancar() {
   api("yo").then((r) => { yo = r; guardado.set("yo", yo); }).catch(() => {});
   mostrarCola(); subirCola();
   $("#btnAyuda").onclick = () => mostrarGuia(true);
+  $("#btnOtro").onclick = otroTelefono;
   mostrarGuia(false);
   const c = new URLSearchParams(location.search).get("c") || guardado.get("pendiente", null);
   guardado.del("pendiente");
@@ -234,6 +236,21 @@ function ir(k) {
 }
 function cargando(el) { el.innerHTML = `<p class="chico">Cargando…</p>`; }
 function fallo(el, e) { el.innerHTML = `<div class="resultado mal">${esc(e.message)}</div>`; }
+
+// ── abrir la app en otro teléfono (código de un uso para uno mismo) ─────────────────────────
+async function otroTelefono() {
+  pararCamara(); marcarNav(null);
+  const el = $("#vista"); cargando(el);
+  try {
+    const r = await api("mi_codigo");
+    el.innerHTML = `<div class="tarjeta"><h2>📱 Abrir en otro teléfono</h2>
+      <p>En el otro teléfono abre <b>jpmetals.cl/cajas</b> (o el ícono 📦 si ya la dejaste como app) y escribe este código:</p>
+      <div class="codigo-acceso">${esc(r.codigo)}</div>
+      <p class="chico">Sirve una sola vez y vence el ${new Date(r.expira).toLocaleDateString("es-CL")}. Este teléfono sigue abierto.</p>
+      <button class="btn sec ancho" id="volverOtro">Volver</button></div>`;
+    $("#volverOtro").onclick = () => ir(pestaña || "escanear");
+  } catch (e) { fallo(el, e); }
+}
 
 // ── guía de la primera vez (pop-ups por rol; se vuelve a ver con el «?») ───────────────────────
 const PASOS = {
@@ -252,7 +269,7 @@ const PASOS = {
     ["🗺️", "Crear viajes", "En «Viajes» → «＋ Nuevo viaje» armas cada viaje (ej. «Alto Hospicio · viaje 1») antes de despachar."],
     ["👥", "Invitar gente", "En «Personas» → «Invitar» creas el acceso de cada persona y se lo mandas por WhatsApp. Al chofer lo desactivas al terminar."],
   ],
-  final: [["📶", "Sin señal, igual funciona", "Si no hay internet, escanea igual: los escaneos se guardan en el teléfono y se suben solos cuando vuelve la señal. Este «?» de arriba te muestra esta ayuda otra vez."]],
+  final: [["📶", "Sin señal, igual funciona", "Si no hay internet, escanea igual: los escaneos se guardan en el teléfono y se suben solos cuando vuelve la señal. Arriba, «?» te muestra esta ayuda otra vez y «📱» te da un código para entrar desde otro teléfono."]],
 };
 function pasosDe(rol) {
   if (rol === "chofer") return [...PASOS.comun, ...PASOS.chofer, ...PASOS.final];
