@@ -81,6 +81,12 @@ details summary{cursor:pointer;font-size:14px;color:var(--vino);padding:4px 0}
   <div class="logo">📦</div>
   <h2 style="text-align:center">Cajas JP</h2>
   <p class="chico" style="text-align:center">Recepción, despacho y entrega de las cajas de filtros de JPMetals.</p>
+  <div class="aviso" id="instalar" hidden>
+    <b>Antes de entrar, déjala como app:</b><br>
+    · iPhone: en Safari, botón Compartir (cuadro con flecha) → «Agregar a pantalla de inicio».<br>
+    · Android: en Chrome, menú ⋮ → «Agregar a la pantalla principal».<br>
+    Después ábrela desde el ícono 📦 y escribe tu código ahí.
+  </div>
   <div class="tarjeta">
     <label for="codigo">Tu código de acceso (te lo pasa Isi o Rodri)</label>
     <input id="codigo" autocomplete="one-time-code" autocapitalize="characters" placeholder="ABCD-1234" maxlength="9">
@@ -514,7 +520,11 @@ async function verPersonas(el) {
         ${p.id !== yo.id ? `<div class="fila" style="margin-top:6px"><button class="btn sec" data-cod="${p.id}" data-n="${esc(p.nombre)}">Nuevo código</button>${p.activo ? `<button class="btn sec" data-off="${p.id}">Desactivar</button>` : ""}</div>` : ""}</li>`).join("")}</ul></div>`;
     $("#inR").onchange = () => { $("#inVBox").hidden = $("#inR").value !== "chofer"; };
     const mostrarAcceso = (nombre, r) => {
-      const texto = `Hola ${nombre}: este es tu acceso a la app Cajas JP de JPMetals. Ábrelo en tu teléfono: ${r.link}\nSi te pide código: ${r.codigo}\nVale una sola vez y hasta el ${new Date(r.expira).toLocaleDateString("es-CL")}.`;
+      const texto = `Hola ${nombre}: este es tu acceso a la app Cajas JP de JPMetals (recepción y despacho de cajas).\n\n` +
+        `1) Abre este link en tu celular: ${r.link}\n` +
+        `2) Déjala como app en tu pantalla de inicio:\n   · iPhone: en Safari, botón Compartir (cuadro con flecha) → «Agregar a pantalla de inicio».\n   · Android: en Chrome, menú ⋮ → «Agregar a la pantalla principal».\n` +
+        `3) Abre la app desde el ícono 📦 y escribe tu código: ${r.codigo}\n\n` +
+        `El código sirve una sola vez y vence el ${new Date(r.expira).toLocaleDateString("es-CL")}.`;
       $("#acceso").innerHTML = `<div class="tarjeta" style="border-color:var(--vino)"><h3>Acceso de ${esc(nombre)}</h3>
         <div class="codigo-acceso">${esc(r.codigo)}</div><div class="chico" style="word-break:break-all">${esc(r.link)}</div>
         <p class="chico">Mándaselo tú por WhatsApp. Sirve una vez y vence en 7 días; esta pantalla no lo vuelve a mostrar.</p>
@@ -544,12 +554,15 @@ async function verPersonas(el) {
 }
 
 // ── inicio ──────────────────────────────────────────────────────────────────────────────────
+const instalada = navigator.standalone === true || matchMedia("(display-mode: standalone)").matches;
+$("#instalar").hidden = instalada;
 if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 const acceso = new URLSearchParams(location.search).get("acceso");
 if (!sesion && new URLSearchParams(location.search).get("c")) guardado.set("pendiente", new URLSearchParams(location.search).get("c"));
 if (acceso) {
   history.replaceState(null, "", location.pathname);
-  if (sesion) arrancar(); else { $("#login").hidden = false; $("#codigo").value = acceso; entrar(acceso); }
+  // No entra solo: en iPhone la app del ícono no comparte sesión con Safari, y el código sirve una vez.
+  if (sesion) arrancar(); else { $("#login").hidden = false; $("#codigo").value = acceso.slice(0, 4) + "-" + acceso.slice(4); }
 } else if (sesion && yo) arrancar();
 else { $("#login").hidden = false; mostrarCola(); }
 </script>
