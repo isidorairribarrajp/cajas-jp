@@ -94,7 +94,8 @@ header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
     <b>Antes de entrar, déjala como app:</b><br>
     · iPhone: en Safari, botón Compartir (cuadro con flecha) → «Agregar a pantalla de inicio».<br>
     · Android: en Chrome, menú ⋮ → «Agregar a la pantalla principal».<br>
-    Después ábrela desde el ícono 📦 y escribe tu código ahí.
+    Después ábrela desde el ícono 📦 y escribe tu código ahí.<br>
+    <b>⚠️ El código sirve una sola vez:</b> úsalo solo en el celular donde vas a dejar la app. Si ya lo usaste en otro lado, pide otro.
   </div>
   <div class="tarjeta">
     <label for="codigo">Tu código de acceso (te lo pasa Isi o Rodri)</label>
@@ -102,7 +103,7 @@ header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
     <p id="loginError" class="chico" style="color:var(--mal)"></p>
     <button class="btn ancho" id="entrar">Entrar</button>
   </div>
-  <p class="chico" style="text-align:center">El código sirve una sola vez; después la app queda abierta en este teléfono.</p>
+  <p class="chico" style="text-align:center"><b>El código sirve una sola vez.</b> Después la app queda abierta en este teléfono. Para entrar en otro teléfono, desde la app toca 📱 (arriba) y te da un código nuevo.</p>
 </section>
 
 <div id="app" hidden>
@@ -306,12 +307,14 @@ function codigoDe(texto) {
   const t = String(texto).trim();
   try { const u = new URL(t); const c = u.searchParams.get("c"); if (c) return c.toUpperCase(); } catch {}
   const m = /\bE\d+-\d{4}\b/i.exec(t);
-  return m ? m[0].toUpperCase() : null;
+  if (m) return m[0].toUpperCase();
+  if (/\bc=PRUEBA\b|^PRUEBA$/i.test(t)) return "PRUEBA";   // QR de prueba: no toca ninguna caja
+  return /^JP-[A-Z0-9]+-E\d+-\d+\|caja\s*\d+/i.test(t) ? t : null;   // QR de texto de las primeras etiquetas
 }
 async function abrirCamara(video, estado, alLeer) {
   pararCamara();
   try {
-    flujo = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment", width: {ideal: 1280}}, audio: false});
+    flujo = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment", width: {ideal: 1920}, height: {ideal: 1080}}, audio: false});
   } catch (e) { estado.textContent = "No pude abrir la cámara: revisa el permiso en Ajustes o escribe el código abajo."; return; }
   video.srcObject = flujo; video.setAttribute("playsinline", ""); await video.play();
   estado.textContent = "Apunta al QR de la etiqueta";
@@ -326,12 +329,16 @@ async function abrirCamara(video, estado, alLeer) {
       try {
         if (detector) { const r = await detector.detect(video); texto = r[0]?.rawValue || null; }
         else {
-          const w = 640, h = Math.round(640 * video.videoHeight / video.videoWidth);
+          const w = Math.min(960, video.videoWidth || 960), h = Math.round(w * video.videoHeight / video.videoWidth);
           lienzo.width = w; lienzo.height = h; ctx.drawImage(video, 0, 0, w, h);
-          texto = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "dontInvert"})?.data || null;
+          texto = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "attemptBoth"})?.data || null;
         }
       } catch {}
       const c = texto && codigoDe(texto);
+      if (texto && !c && texto !== ultimo) {
+        ultimo = texto; ultimoT = Date.now();
+        $("#ultimo") && ($("#ultimo").innerHTML = tarjetaResultado("mal", "Leí un QR, pero no es de una caja", null, `<div class="chico" style="word-break:break-all">${esc(texto.slice(0, 120))}</div>`));
+      }
       if (c && (c !== ultimo || Date.now() - ultimoT > 4000)) {
         ultimo = c; ultimoT = Date.now();
         if (navigator.vibrate) navigator.vibrate(60);
@@ -357,6 +364,7 @@ function verEscanear(el) {
   let hechos = [];
   el.innerHTML = `
     <div class="modos" id="modos">${modos.map((m) => `<button data-m="${m}">${{recibida: "📥 Recibir", despachada: "🚚 Despachar", entregada: "🏥 Entregar"}[m]}</button>`).join("")}</div>
+    <div id="pistolaEstado" class="pastilla" style="display:block;text-align:center;padding:8px;margin-bottom:8px;font-size:14px"></div>
     <div id="eligeViaje" hidden><label>Viaje</label><select id="selViaje"></select></div>
     <div id="visor"><video muted></video><div class="marco"></div><div class="estado" id="camEstado">Abriendo cámara…</div></div>
     <div class="fila" style="flex-wrap:nowrap"><input id="manual" placeholder="o escribe el código: E1-0427" autocapitalize="characters"><button class="btn sec" id="manualOk">OK</button></div>
@@ -391,6 +399,7 @@ function verEscanear(el) {
   };
   const leer = async (codigo) => {
     const u = $("#ultimo");
+    if (codigo === "PRUEBA") { u.innerHTML = tarjetaResultado("ok", "✓ QR de prueba leído", null, `<div class="chico">La lectura funciona. No se marcó ninguna caja.</div>`); return; }
     if (modo === "despachada" && !viaje) { u.innerHTML = tarjetaResultado("mal", "Primero elige el viaje"); return; }
     const op = {codigo, tipo: modo, despacho_id: modo === "despachada" ? viaje : null, en: new Date().toISOString()};
     try {
@@ -406,24 +415,47 @@ function verEscanear(el) {
   $("#manualOk").onclick = () => { const c = codigoDe($("#manual").value) || $("#manual").value.trim().toUpperCase(); if (c) { leer(c); $("#manual").value = ""; } };
   $("#manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#manualOk").click(); });
   abrirCamara($("#visor video"), $("#camEstado"), leer);
-  // Pistola lectora Bluetooth (modo teclado): escribe el link del QR + Enter. Se capta aunque no haya
-  // un campo enfocado, mientras esta pantalla esté abierta.
-  let buf = "", ultimaTecla = 0;
+  // Pistola lectora Bluetooth (modo teclado): escribe el link del QR + Enter muy rápido. Se capta aunque no
+  // haya un campo enfocado, mientras esta pantalla esté abierta. Una página no puede ver si la pistola está
+  // emparejada: se marca «conectada» cuando llega la primera lectura (ráfaga de teclas + Enter).
+  pintarPistola();
+  let buf = "", ultimaTecla = 0, rafaga = 0;
   pistola = (e) => {
-    if (pestaña !== "escanear" || e.target.matches("input,select,textarea")) return;
+    if (pestaña !== "escanear") return;
     const ahora = Date.now();
-    if (ahora - ultimaTecla > 300) buf = "";
+    if (ahora - ultimaTecla > 120) { buf = ""; rafaga = 0; }
     ultimaTecla = ahora;
-    if (e.key === "Enter") { const c = codigoDe(buf); buf = ""; if (c) leer(c); }
-    else if (e.key.length === 1) buf += e.key;
+    if (e.key === "Enter") {
+      const esPistola = rafaga >= 6;
+      const c = codigoDe(buf);
+      buf = ""; rafaga = 0;
+      if (esPistola) {
+        guardado.set("pistolaVista", Date.now()); pintarPistola();
+        if (e.target.matches("input,select,textarea")) { e.preventDefault(); e.target.value = ""; }
+        if (c) leer(c);
+        else $("#ultimo").innerHTML = tarjetaResultado("ya", "🔫 La pistola funciona", null, `<div class="chico">Pero ese código no es de una caja de JPMetals.</div>`);
+      }
+    } else if (e.key.length === 1) { buf += e.key; rafaga++; }
   };
+}
+function pintarPistola() {
+  const el = $("#pistolaEstado"); if (!el) return;
+  const t = guardado.get("pistolaVista", 0);
+  const reciente = t && Date.now() - t < 12 * 3600e3;
+  el.style.background = reciente ? "var(--okf)" : "#f5f5f4";
+  el.style.color = reciente ? "var(--ok)" : "var(--suave)";
+  el.textContent = reciente
+    ? `🔫 Pistola conectada ✓ · última lectura ${new Date(t).toLocaleTimeString("es-CL", {hour: "2-digit", minute: "2-digit"})}`
+    : "🔫 Pistola: sin lecturas todavía. Conéctala por Bluetooth y aprieta el gatillo sobre un QR para probar.";
 }
 let pistola = null;
 document.addEventListener("keydown", (e) => pistola && pistola(e));
 
 // ── una caja (al abrir el QR con la cámara del teléfono) ─────────────────────────────────────
 async function verCaja(codigo) {
-  const el = $("#vista"); cargando(el);
+  const el = $("#vista");
+  if (codigo === "PRUEBA") { el.innerHTML = tarjetaResultado("ok", "✓ QR de prueba", null, `<div class="chico">El QR abre la app bien. Ahora prueba en Escanear con la cámara o la pistola.</div>`); return; }
+  cargando(el);
   try {
     const c = await api("caja", {codigo});
     const pasos = [["Recibida en bodega", c.recibida_en, c.recibida_por], ["Despachada" + (c.viaje ? ` · ${c.viaje.hospital} · ${c.viaje.carga || ""}` : ""), c.despachada_en, c.despachada_por],
@@ -600,7 +632,7 @@ async function verPersonas(el) {
         `1) Abre este link en tu celular: ${r.link}\n` +
         `2) Déjala como app en tu pantalla de inicio:\n   · iPhone: en Safari, botón Compartir (cuadro con flecha) → «Agregar a pantalla de inicio».\n   · Android: en Chrome, menú ⋮ → «Agregar a la pantalla principal».\n` +
         `3) Abre la app desde el ícono 📦 y escribe tu código: ${r.codigo}\n\n` +
-        `El código sirve una sola vez y vence el ${new Date(r.expira).toLocaleDateString("es-CL")}.`;
+        `⚠️ Ojo: el código sirve UNA sola vez. Úsalo solo en el celular donde vas a dejar la app (no lo abras antes en el computador). Vence el ${new Date(r.expira).toLocaleDateString("es-CL")}.`;
       $("#acceso").innerHTML = `<div class="tarjeta" style="border-color:var(--vino)"><h3>Acceso de ${esc(nombre)}</h3>
         <div class="codigo-acceso">${esc(r.codigo)}</div><div class="chico" style="word-break:break-all">${esc(r.link)}</div>
         <p class="chico">Mándaselo tú por WhatsApp. Sirve una vez y vence en 7 días; esta pantalla no lo vuelve a mostrar.</p>
