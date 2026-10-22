@@ -69,6 +69,15 @@ label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
 .aviso{background:var(--avisof);border:1px solid #fde68a;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px}
 .codigo-acceso{font:700 28px/1.2 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;padding:10px;background:#f5f5f4;border-radius:10px;margin:8px 0}
 details summary{cursor:pointer;font-size:14px;color:var(--vino);padding:4px 0}
+#guia{position:fixed;inset:0;z-index:20;background:#0009;display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+#guia .caja{background:#fff;border-radius:18px;max-width:480px;width:100%;padding:20px 18px 16px;box-shadow:0 10px 40px #0005}
+#guia .ico{font-size:44px;line-height:1}
+#guia h3{font-size:19px;margin:10px 0 6px}
+#guia p{margin:0 0 14px;font-size:16px}
+#guia .puntos{display:flex;gap:6px;justify-content:center;margin:4px 0 12px}
+#guia .puntos i{width:8px;height:8px;border-radius:4px;background:#e7e5e4}
+#guia .puntos i.act{background:var(--vino);width:20px}
+header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
 .leyenda{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--suave)}
 .leyenda span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;background:var(--c)}
 #login{max-width:420px;margin:12vh auto 0;padding:0 20px}
@@ -99,12 +108,16 @@ details summary{cursor:pointer;font-size:14px;color:var(--vino);padding:4px 0}
 <div id="app" hidden>
   <header>
     <h1>📦 Cajas JP</h1>
+    <button class="ayuda" id="btnAyuda" aria-label="Cómo se usa">?</button>
     <div class="yo"><span id="yoNombre"></span><br><span id="yoRol" class="chico" style="color:#fff"></span></div>
   </header>
   <main id="vista"></main>
   <nav id="nav"></nav>
 </div>
 <div id="colaAviso" class="cola" hidden></div>
+<div id="guia" hidden><div class="caja"><div class="ico" id="gIco"></div><h3 id="gTit"></h3><p id="gTxt"></p>
+  <div class="puntos" id="gPuntos"></div>
+  <div class="fila" style="justify-content:space-between"><button class="btn sec" id="gSaltar">Saltar</button><button class="btn" id="gSig">Siguiente</button></div></div></div>
 
 <script src="jsQR.js"></script>
 <script>
@@ -205,6 +218,8 @@ function arrancar() {
   $("#nav").onclick = (e) => { const b = e.target.closest("button"); if (b) ir(b.dataset.p); };
   api("yo").then((r) => { yo = r; guardado.set("yo", yo); }).catch(() => {});
   mostrarCola(); subirCola();
+  $("#btnAyuda").onclick = () => mostrarGuia(true);
+  mostrarGuia(false);
   const c = new URLSearchParams(location.search).get("c") || guardado.get("pendiente", null);
   guardado.del("pendiente");
   if (c) { history.replaceState(null, "", location.pathname); verCaja(c); marcarNav(null); }
@@ -219,6 +234,50 @@ function ir(k) {
 }
 function cargando(el) { el.innerHTML = `<p class="chico">Cargando…</p>`; }
 function fallo(el, e) { el.innerHTML = `<div class="resultado mal">${esc(e.message)}</div>`; }
+
+// ── guía de la primera vez (pop-ups por rol; se vuelve a ver con el «?») ───────────────────────
+const PASOS = {
+  comun: [["👋", (n) => `Hola ${n}`, "Esta app registra cada caja de filtros de JPMetals: cuando llega a la bodega, cuando sale en un viaje y cuando se entrega en el hospital. Queda quién lo hizo y a qué hora."]],
+  bodega: [
+    ["📥", "Recibir en bodega", "Cuando llega el camión: Escanear → «Recibir» y apunta al QR de cada caja (con la cámara o con la pistola). La app te dice qué caja es y suena al leerla."],
+    ["📋", "¿Falta alguna?", "En «Recepción» ves por hospital cuántas cajas llegaron y cuáles faltan contra el packing list."],
+    ["🚚", "Cargar un viaje", "Cuando sale el camión: Escanear → «Despachar», elige el viaje arriba y escanea cada caja que sube."],
+  ],
+  chofer: [
+    ["🚚", "Tu viaje", "En «Viajes» está tu viaje con todas las cajas que llevas."],
+    ["🏥", "Entregar", "En el hospital, abre tu viaje y toca «Entregar las cajas de una vez». Si entregas por partes, usa Escanear → «Entregar» caja por caja."],
+    ["📄", "La guía firmada", "Saca una foto a la guía de despacho firmada desde tu viaje. Es el respaldo de la entrega."],
+  ],
+  admin_extra: [
+    ["🗺️", "Crear viajes", "En «Viajes» → «＋ Nuevo viaje» armas cada viaje (ej. «Alto Hospicio · viaje 1») antes de despachar."],
+    ["👥", "Invitar gente", "En «Personas» → «Invitar» creas el acceso de cada persona y se lo mandas por WhatsApp. Al chofer lo desactivas al terminar."],
+  ],
+  final: [["📶", "Sin señal, igual funciona", "Si no hay internet, escanea igual: los escaneos se guardan en el teléfono y se suben solos cuando vuelve la señal. Este «?» de arriba te muestra esta ayuda otra vez."]],
+};
+function pasosDe(rol) {
+  if (rol === "chofer") return [...PASOS.comun, ...PASOS.chofer, ...PASOS.final];
+  if (rol === "bodega") return [...PASOS.comun, ...PASOS.bodega, ...PASOS.final];
+  return [...PASOS.comun, ...PASOS.bodega, ...PASOS.admin_extra, PASOS.chofer[1], ...PASOS.final];
+}
+function mostrarGuia(forzar) {
+  const clave = "guia." + yo.id;
+  if (!forzar && guardado.get(clave, false)) return;
+  const pasos = pasosDe(yo.rol);
+  let i = 0;
+  const pintar = () => {
+    const [ico, tit, txt] = pasos[i];
+    $("#gIco").textContent = ico;
+    $("#gTit").textContent = typeof tit === "function" ? tit(yo.nombre) : tit;
+    $("#gTxt").textContent = txt;
+    $("#gPuntos").innerHTML = pasos.map((_, k) => `<i class="${k === i ? "act" : ""}"></i>`).join("");
+    $("#gSig").textContent = i === pasos.length - 1 ? "¡Listo!" : "Siguiente";
+    $("#gSaltar").hidden = i === pasos.length - 1;
+  };
+  const cerrar = () => { $("#guia").hidden = true; guardado.set(clave, true); };
+  $("#gSig").onclick = () => { if (i < pasos.length - 1) { i++; pintar(); } else cerrar(); };
+  $("#gSaltar").onclick = cerrar;
+  pintar(); $("#guia").hidden = false;
+}
 
 // ── escáner ─────────────────────────────────────────────────────────────────────────────────
 let flujo = null, bucle = null;
