@@ -413,8 +413,21 @@ function verEscanear(el) {
     try {
       const c = await api("marcar", op);
       const verbo = {recibida: "Recibida en bodega", despachada: "Despachada", entregada: "Entregada"}[modo];
-      u.innerHTML = tarjetaResultado(c.ya ? "ya" : "ok", c.ya ? `Ya estaba: ${ESTADO[c.estado]}` : `✓ ${verbo}`, c);
-      if (!c.ya) { hechos.unshift({codigo, sku: c.sku_jp}); resumen(); }
+      // Isi, 02-nov-2026: «si alguien se equivoca con el QR debería poder sacarlo»: quien lo marcó lo deshace
+      // aquí mismo (15 min); después, un admin desde la caja.
+      u.innerHTML = tarjetaResultado(c.ya ? "ya" : "ok", c.ya ? `Ya estaba: ${ESTADO[c.estado]}` : `✓ ${verbo}`, c,
+        c.ya ? "" : `<button class="btn sec" id="deshacerUlt" style="margin-top:8px;min-height:40px;padding:8px 14px">↩︎ Deshacer (me equivoqué)</button>`);
+      if (!c.ya) {
+        hechos.unshift({codigo: c.codigo, sku: c.sku_jp}); resumen();
+        $("#deshacerUlt").onclick = async (ev) => {
+          const b = ev.currentTarget; b.disabled = true;
+          try {
+            const d = await api("deshacer", {codigo: c.codigo});
+            u.innerHTML = tarjetaResultado("ya", `↩︎ Deshecho: ${c.codigo} vuelve a «${ESTADO[d.estado]}»`, d);
+            const k = hechos.findIndex((h) => h.codigo === c.codigo); if (k >= 0) hechos.splice(k, 1); resumen();
+          } catch (er) { u.insertAdjacentHTML("beforeend", tarjetaResultado("mal", er.message)); b.disabled = false; }
+        };
+      }
     } catch (e) {
       if (e instanceof SinRed) { encolar(op); u.innerHTML = tarjetaResultado("cola", `📶 ${codigo} guardada sin señal`, null, `<div class="chico">Se sube sola cuando vuelva la conexión, con la hora de ahora.</div>`); hechos.unshift({codigo, sku: "sin señal"}); resumen(); }
       else u.innerHTML = tarjetaResultado("mal", e.message);
@@ -492,7 +505,7 @@ async function verCaja(codigo) {
       <ul class="lista" style="margin-top:10px">${pasos.map(([t, en, por]) => `<li>${en ? "✅" : "⬜"} ${esc(t)}${en ? `<div class="chico">${hora(en)} · ${esc(por)}</div>` : ""}</li>`).join("")}</ul>
       <div id="accCaja" style="display:grid;gap:8px;margin-top:8px">${acciones.map(([t, n]) => `<button class="btn ancho" data-t="${t}">${n}</button>`).join("")}
       ${["admin", "bodega"].includes(yo.rol) && c.estado !== "entregada" ? `<button class="btn sec ancho" data-ir="escanear">🚚 Para despachar, usa Escanear → Despachar</button>` : ""}
-      ${yo.rol === "admin" && c.estado !== "en_camino" ? `<button class="btn sec ancho" data-deshacer="1">↩︎ Deshacer el último paso</button>` : ""}</div>
+      ${c.estado !== "en_camino" ? `<button class="btn sec ancho" data-deshacer="1">↩︎ Deshacer el último paso${yo.rol === "admin" ? "" : " (solo lo tuyo, 15 min)"}</button>` : ""}</div>
       <div id="cajaMsg"></div></div>`;
     $("#accCaja").onclick = async (e) => {
       const b = e.target.closest("button"); if (!b) return;
