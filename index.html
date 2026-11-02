@@ -676,11 +676,13 @@ async function verPersonas(el) {
       $("#acceso").scrollIntoView({behavior: "smooth"});
     };
     $("#inOk").onclick = async () => {
+      if ($("#inOk").disabled) return;   // un doble toque creaba la misma persona dos veces
+      $("#inOk").disabled = true;
       try {
         const nombre = $("#inN").value.trim();
         const r = await api("invitar", {nombre, contacto: $("#inC").value.trim(), rol: $("#inR").value, despacho_id: $("#inR").value === "chofer" ? Number($("#inV").value) || null : null});
         await verPersonas(el); mostrarAcceso(nombre, r);
-      } catch (e) { $("#inMsg").innerHTML = tarjetaResultado("mal", e.message); }
+      } catch (e) { $("#inMsg").innerHTML = tarjetaResultado("mal", e.message); $("#inOk").disabled = false; }
     };
     el.onclick = async (e) => {
       const b = e.target.closest("button[data-cod],button[data-off]"); if (!b) return;
