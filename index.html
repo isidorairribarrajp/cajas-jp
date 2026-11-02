@@ -6,7 +6,9 @@
 <meta name="theme-color" content="#831843">
 <meta name="robots" content="noindex, nofollow">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Cajas JP">
+<meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="manifest.json">
 <link rel="apple-touch-icon" href="icono-180.png">
 <link rel="icon" href="icono-180.png">
@@ -15,49 +17,60 @@
   Cajas JP — recepción, despacho y entrega de cada caja de filtros de JPMetals (Isi, 21-oct-2026).
   Esta página no tiene datos ni llaves: todo pasa por la función «cajas» de Supabase, que pide el login
   de cada persona (código de acceso → sesión guardada en el teléfono). Fuente: ~/JPMetals/cajas_app.
+  02-nov-2026: lectura instantánea (las cajas quedan en memoria y las lecturas suben en lote, en segundo plano)
+  y deshacer desde Recepción, Viajes y Escanear.
 -->
 <style>
-:root{--vino:#831843;--vino2:#9d174d;--fondo:#faf7f2;--tarjeta:#fff;--tinta:#1c1917;--suave:#78716c;--linea:#e7e5e4;
+:root{--vino:#831843;--vino2:#9d174d;--fondo:#faf7f2;--tarjeta:#fff;--tinta:#1c1917;--suave:#6b6460;--linea:#e7e5e4;
   --ok:#047857;--okf:#ecfdf5;--aviso:#b45309;--avisof:#fffbeb;--mal:#b91c1c;--malf:#fef2f2;--azul:#1d4ed8;--azulf:#eff6ff}
 *{box-sizing:border-box}
-html,body{margin:0;background:var(--fondo);color:var(--tinta);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
-body{padding:env(safe-area-inset-top) 0 calc(72px + env(safe-area-inset-bottom))}
+html,body{margin:0;background:var(--fondo);color:var(--tinta);font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;-webkit-text-size-adjust:100%}
+body{padding:env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom))}
+button,select,input,summary,a{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button{font:inherit;cursor:pointer;-webkit-user-select:none;user-select:none}
+:focus-visible{outline:3px solid #f59e0b;outline-offset:2px}
 [hidden]{display:none!important}
-header{position:sticky;top:0;z-index:5;background:var(--vino);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;margin-top:calc(-1 * env(safe-area-inset-top));display:flex;align-items:center;gap:10px}
-header h1{font-size:18px;margin:0;flex:1}
-header .yo{font-size:13px;opacity:.9;text-align:right}
-header button{background:transparent;border:1px solid #fff6;color:#fff;border-radius:8px;padding:4px 8px;font-size:12px}
+header{position:sticky;top:0;z-index:5;background:var(--vino);color:#fff;padding:calc(8px + env(safe-area-inset-top)) 12px 8px 16px;margin-top:calc(-1 * env(safe-area-inset-top));display:flex;align-items:center;gap:8px}
+header h1{font-size:18px;margin:0;flex:1;white-space:nowrap}
+header .yo{font-size:13px;opacity:.95;text-align:right;line-height:1.25}
+header .yo a{color:#fff;display:inline-block;padding:4px 0}
+header button{background:transparent;border:1px solid #fff6;color:#fff;border-radius:999px;min-width:40px;min-height:40px;font-size:17px;padding:0 8px}
 main{padding:14px 16px;max-width:640px;margin:0 auto}
 nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--linea);display:flex;padding-bottom:env(safe-area-inset-bottom);z-index:5}
-nav button{flex:1;background:none;border:0;padding:8px 2px 10px;font-size:12px;color:var(--suave)}
-nav button b{display:block;font-size:22px;line-height:1.2}
-nav button.act{color:var(--vino);font-weight:600}
+nav button{flex:1;background:none;border:0;padding:8px 2px 10px;font-size:13px;color:var(--suave);min-height:60px}
+nav button b{display:block;font-size:24px;line-height:1.2}
+nav button.act{color:var(--vino);font-weight:700;box-shadow:inset 0 3px 0 var(--vino)}
 .tarjeta{background:var(--tarjeta);border:1px solid var(--linea);border-radius:14px;padding:14px;margin-bottom:12px}
-h2{font-size:17px;margin:4px 0 10px}
-h3{font-size:15px;margin:0 0 6px}
-.chico{font-size:13px;color:var(--suave)}
+h2{font-size:18px;margin:4px 0 10px}
+h3{font-size:16px;margin:0 0 6px}
+.chico{font-size:14px;color:var(--suave)}
 .fila{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
-.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:600;background:var(--vino);color:#fff;min-height:48px}
-.btn.sec{background:#f5f5f4;color:var(--tinta);border:1px solid var(--linea)}
+.entre{justify-content:space-between}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:0;border-radius:12px;padding:12px 16px;font-size:16px;font-weight:600;background:var(--vino);color:#fff;min-height:52px}
+.btn.sec{background:#f5f5f4;color:var(--tinta);border:1px solid #d6d3d1}
 .btn.verde{background:var(--ok)}
 .btn.ancho{width:100%}
+.btn.mini{min-height:44px;padding:6px 12px;font-size:15px;border-radius:10px}
+.btn.confirmar{background:var(--mal)!important;color:#fff!important;border-color:var(--mal)!important}
 .btn:disabled{opacity:.5}
-input,select{font-size:16px;padding:12px;border:1px solid #d6d3d1;border-radius:10px;width:100%;background:#fff;color:var(--tinta)}
-label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
+input,select{font-size:16px;padding:12px;border:1px solid #d6d3d1;border-radius:10px;width:100%;background:#fff;color:var(--tinta);min-height:50px}
+label{display:block;font-size:14px;color:var(--suave);margin:10px 0 4px}
 .modos{display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:6px;margin-bottom:10px}
-.modos button{border:1px solid var(--linea);background:#fff;border-radius:10px;padding:10px 4px;font-size:14px;font-weight:600;color:var(--suave)}
+.modos button{border:2px solid var(--linea);background:#fff;border-radius:12px;padding:10px 4px;font-size:16px;font-weight:700;color:var(--suave);min-height:58px}
 .modos button.act{background:var(--vino);color:#fff;border-color:var(--vino)}
 #visor{position:relative;background:#000;border-radius:14px;overflow:hidden;aspect-ratio:4/3;margin-bottom:10px}
 #visor video{width:100%;height:100%;object-fit:cover;display:block}
-#visor .marco{position:absolute;inset:18% 22%;border:3px solid #fff9;border-radius:16px}
-#visor .estado{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;color:#fff;font-size:13px;background:#0008}
-.resultado{border-radius:14px;padding:12px 14px;margin-bottom:10px;border:1px solid}
-.resultado.ok{background:var(--okf);border-color:#a7f3d0}
-.resultado.ya{background:var(--azulf);border-color:#bfdbfe}
-.resultado.mal{background:var(--malf);border-color:#fecaca}
-.resultado.cola{background:var(--avisof);border-color:#fde68a}
-.resultado .grande{font-size:20px;font-weight:700}
-.pastilla{display:inline-block;font-size:12px;font-weight:600;border-radius:999px;padding:2px 8px;background:#f5f5f4;color:var(--suave)}
+#visor .marco{position:absolute;inset:18% 22%;border:3px solid #fff9;border-radius:16px;pointer-events:none}
+#visor .estado{position:absolute;left:0;right:0;bottom:0;padding:6px 10px;color:#fff;font-size:14px;background:#0008}
+#visor.flash .marco{border-color:#34d399;box-shadow:0 0 0 999px #34d39933}
+.resultado{border-radius:14px;padding:12px 14px;margin-bottom:10px;border:2px solid}
+.resultado.ok{background:var(--okf);border-color:#6ee7b7}
+.resultado.ya{background:var(--azulf);border-color:#93c5fd}
+.resultado.mal{background:var(--malf);border-color:#fca5a5}
+.resultado.cola{background:var(--avisof);border-color:#fcd34d}
+.resultado .grande{font-size:21px;font-weight:800;line-height:1.25}
+.resultado .sku{font-size:19px;font-weight:700;margin-top:4px}
+.pastilla{display:inline-block;font-size:13px;font-weight:600;border-radius:999px;padding:3px 9px;background:#f5f5f4;color:var(--suave);white-space:nowrap}
 .p-en_camino{background:#f5f5f4;color:#57534e}.p-recibida{background:var(--azulf);color:var(--azul)}
 .p-despachada{background:var(--avisof);color:var(--aviso)}.p-entregada{background:var(--okf);color:var(--ok)}
 .barra{height:10px;border-radius:5px;background:#f5f5f4;overflow:hidden;display:flex;margin:6px 0}
@@ -65,10 +78,22 @@ label{display:block;font-size:13px;color:var(--suave);margin:10px 0 4px}
 .lista{list-style:none;margin:0;padding:0}
 .lista li{padding:10px 0;border-top:1px solid var(--linea)}
 .lista li:first-child{border-top:0}
-.cola{position:fixed;left:12px;right:12px;bottom:calc(80px + env(safe-area-inset-bottom));background:var(--aviso);color:#fff;border-radius:12px;padding:10px 14px;font-size:14px;z-index:6}
-.aviso{background:var(--avisof);border:1px solid #fde68a;border-radius:12px;padding:10px 12px;font-size:14px;margin-bottom:10px}
+.cajas li{display:flex;align-items:center;gap:8px;padding:6px 0}
+.cajas li .q{flex:1;min-width:0}
+.lect{display:flex;align-items:center;gap:8px;padding:8px 6px;border-top:1px solid var(--linea);border-radius:8px}
+.lect:first-child{border-top:0}
+.lect .ic{font-size:18px;width:26px;text-align:center;flex:none}
+.lect .q{flex:1;min-width:0}
+.lect .q b{font-size:16px}
+.lect.mal{background:var(--malf)}
+.lect.mal .msg{color:var(--mal);font-weight:600}
+.lect.deshecha .q{text-decoration:line-through;color:var(--suave)}
+.cola{position:fixed;left:12px;right:12px;bottom:calc(84px + env(safe-area-inset-bottom));background:var(--aviso);color:#fff;border-radius:12px;padding:10px 14px;font-size:15px;z-index:6}
+#avisoMal{position:fixed;left:10px;right:10px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:15;background:var(--mal);color:#fff;border-radius:14px;padding:12px 14px;font-size:16px;font-weight:600;box-shadow:0 8px 30px #0004;border:0;text-align:left;width:auto}
+#avisoMal small{display:block;font-weight:400;opacity:.9;margin-top:4px}
+.aviso{background:var(--avisof);border:1px solid #fde68a;border-radius:12px;padding:10px 12px;font-size:15px;margin-bottom:10px}
 .codigo-acceso{font:700 28px/1.2 ui-monospace,Menlo,monospace;letter-spacing:2px;text-align:center;padding:10px;background:#f5f5f4;border-radius:10px;margin:8px 0}
-details summary{cursor:pointer;font-size:14px;color:var(--vino);padding:4px 0}
+details summary{cursor:pointer;font-size:15px;color:var(--vino);padding:8px 0;min-height:40px}
 #guia{position:fixed;inset:0;z-index:20;background:#0009;display:flex;align-items:flex-end;justify-content:center;padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
 #guia .caja{background:#fff;border-radius:18px;max-width:480px;width:100%;padding:20px 18px 16px;box-shadow:0 10px 40px #0005}
 #guia .ico{font-size:44px;line-height:1}
@@ -77,11 +102,12 @@ details summary{cursor:pointer;font-size:14px;color:var(--vino);padding:4px 0}
 #guia .puntos{display:flex;gap:6px;justify-content:center;margin:4px 0 12px}
 #guia .puntos i{width:8px;height:8px;border-radius:4px;background:#e7e5e4}
 #guia .puntos i.act{background:var(--vino);width:20px}
-header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
-.leyenda{display:flex;gap:10px;flex-wrap:wrap;font-size:12px;color:var(--suave)}
+.leyenda{display:flex;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--suave)}
 .leyenda span::before{content:"";display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px;background:var(--c)}
 #login{max-width:420px;margin:12vh auto 0;padding:0 20px}
 #login .logo{font-size:56px;text-align:center}
+#pistolaIn{text-align:center;margin-bottom:8px;font-size:16px;border:2px dashed #d6d3d1;caret-color:transparent}
+#pistolaIn.activa{border-color:var(--ok);border-style:solid;background:var(--okf)}
 </style>
 </head>
 <body>
@@ -99,8 +125,8 @@ header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
   </div>
   <div class="tarjeta">
     <label for="codigo">Tu código de acceso (te lo pasa Isi o Rodri)</label>
-    <input id="codigo" autocomplete="one-time-code" autocapitalize="characters" placeholder="ABCD-1234" maxlength="9">
-    <p id="loginError" class="chico" style="color:var(--mal)"></p>
+    <input id="codigo" autocomplete="one-time-code" autocapitalize="characters" autocorrect="off" spellcheck="false" placeholder="ABCD-1234" maxlength="9">
+    <p id="loginError" class="chico" style="color:var(--mal)" role="alert"></p>
     <button class="btn ancho" id="entrar">Entrar</button>
   </div>
   <p class="chico" style="text-align:center"><b>El código sirve una sola vez.</b> Después la app queda abierta en este teléfono. Para entrar en otro teléfono, desde la app toca 📱 (arriba) y te da un código nuevo.</p>
@@ -109,24 +135,28 @@ header .ayuda{font-size:16px;padding:2px 9px;border-radius:999px}
 <div id="app" hidden>
   <header>
     <h1>📦 Cajas JP</h1>
-    <button class="ayuda" id="btnOtro" aria-label="Abrir en otro teléfono">📱</button>
-    <button class="ayuda" id="btnAyuda" aria-label="Cómo se usa">?</button>
-    <div class="yo"><span id="yoNombre"></span><br><span id="yoRol" class="chico" style="color:#fff"></span></div>
+    <button id="btnOtro" aria-label="Abrir en otro teléfono">📱</button>
+    <button id="btnAyuda" aria-label="Cómo se usa">?</button>
+    <div class="yo"><span id="yoNombre"></span><br><span id="yoRol"></span></div>
   </header>
   <main id="vista"></main>
-  <nav id="nav"></nav>
+  <nav id="nav" aria-label="Secciones"></nav>
 </div>
-<div id="colaAviso" class="cola" hidden></div>
-<div id="guia" hidden><div class="caja"><div class="ico" id="gIco"></div><h3 id="gTit"></h3><p id="gTxt"></p>
+<div id="colaAviso" class="cola" hidden role="status"></div>
+<button id="avisoMal" hidden aria-live="assertive"></button>
+<div id="guia" hidden role="dialog" aria-modal="true" aria-labelledby="gTit"><div class="caja"><div class="ico" id="gIco"></div><h3 id="gTit"></h3><p id="gTxt"></p>
   <div class="puntos" id="gPuntos"></div>
-  <div class="fila" style="justify-content:space-between"><button class="btn sec" id="gSaltar">Saltar</button><button class="btn" id="gSig">Siguiente</button></div></div></div>
+  <div class="fila entre"><button class="btn sec" id="gSaltar">Saltar</button><button class="btn" id="gSig">Siguiente</button></div></div></div>
 
-<script src="jsQR.js"></script>
+<script src="jsQR.js" defer></script>
 <script>
 "use strict";
 const API = "https://yoycvohmjstvywhcuunm.supabase.co/functions/v1/cajas";
 const ROL = {admin: "Admin", bodega: "Bodega", chofer: "Chofer"};
 const ESTADO = {en_camino: "En camino", recibida: "En bodega", despachada: "Despachada", entregada: "Entregada"};
+const ESTADO_VIAJE = {planificado: "Planificado", confirmado: "Confirmado", "en ruta": "En ruta", entregado: "Entregado", cancelado: "Cancelado"};
+const VERBO = {recibida: "Recibida en bodega", despachada: "Despachada", entregada: "Entregada"};
+const ICONO_TIPO = {recibida: "📥", despachada: "🚚", entregada: "🏥"};
 const COLOR = {en_camino: "#d6d3d1", recibida: "#3b82f6", despachada: "#f59e0b", entregada: "#059669"};
 const HOSPITALES = ["Alto Hospicio", "Alto Hospicio 2", "Marga Marga", "Villarrica", "Melipilla", "CCHEN"];
 
@@ -137,56 +167,217 @@ const guardado = {
 };
 let sesion = guardado.get("sesion", null);
 let yo = guardado.get("yo", null);
-let pestaña = null;
+let pestaña = null;          // la pestaña que se está viendo (null si es una pantalla suelta: una caja, otro teléfono)
+let ultimaPestaña = null;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"}[c]));
-const hora = (t) => t ? new Date(t).toLocaleString("es-CL", {day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit"}) : "";
+const hora = (t) => t ? new Date(t).toLocaleString("es-CL", {day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit", hour12: false}) : "";
+const horaCorta = (t) => t ? new Date(t).toLocaleTimeString("es-CL", {hour: "2-digit", minute: "2-digit", hour12: false}) : "";
 const fecha = (t) => t ? new Date(t + (t.length === 10 ? "T12:00:00" : "")).toLocaleDateString("es-CL", {day: "2-digit", month: "short"}) : "";
+const nuevoId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 class SinRed extends Error {}
-async function api(accion, datos = {}, intento = 1) {
+async function api(accion, datos = {}, {intento = 1, espera = 15000} = {}) {
   let r;
+  const corte = new AbortController(), reloj = setTimeout(() => corte.abort(), espera);
   try {
-    r = await fetch(API, {method: "POST", headers: {"content-type": "application/json"},
+    r = await fetch(API, {method: "POST", headers: {"content-type": "application/json"}, signal: corte.signal,
                           body: JSON.stringify({accion, sesion, ...datos})});
   } catch (e) { throw new SinRed("Sin conexión"); }
+  finally { clearTimeout(reloj); }
   const j = await r.json().catch(() => ({error: "Respuesta rara del servidor"}));
   // La primera llamada tras un rato sin uso a veces llega con «Gateway Timeout» (servidor frío): un reintento.
-  if (intento === 1 && (r.status >= 500 || /timeout/i.test(j.error || ""))) return api(accion, datos, 2);
-  if (r.status === 401 && accion !== "entrar") { cerrarSesion(j.error); throw new Error(j.error); }
-  if (!r.ok) throw new Error(j.error || "Error " + r.status);
+  if (intento === 1 && (r.status >= 500 || /timeout/i.test(j?.error || ""))) return api(accion, datos, {intento: 2, espera});
+  if (r.status === 401 && accion !== "entrar") { cerrarSesion(j.error); const e = new Error(j.error); e.status = 401; throw e; }
+  if (!r.ok) { const e = new Error(j?.error || "Error " + r.status); e.status = r.status; throw e; }
   return j;
 }
 
-// ── cola sin señal: los escaneos se guardan con su hora y suben solos ─────────────────────────
-function cola() { return guardado.get("cola", []); }
-function encolar(op) { const c = cola(); c.push(op); guardado.set("cola", c); mostrarCola(); }
-function mostrarCola() {
-  const n = cola().length, el = $("#colaAviso");
-  el.hidden = !n || !sesion;
-  el.textContent = `📶 ${n} escaneo${n === 1 ? "" : "s"} sin subir: se suben solos cuando vuelva la señal.`;
-}
-let subiendo = false;
-async function subirCola() {
-  if (subiendo || !sesion) return;
-  subiendo = true;
+// ── sonido y vibración al leer (WebAudio: sin archivos) ────────────────────────────────────────
+// iPhone no vibra desde una página: ahí el aviso es el sonido y el color de la tarjeta.
+let audio = null;
+function desbloquearAudio() {
   try {
-    let c = cola();
-    while (c.length) {
-      const op = c[0];
-      try { await api("marcar", op); }
-      catch (e) { if (e instanceof SinRed) break; op.error = e.message; guardado.set("errores", [...guardado.get("errores", []), op].slice(-50)); }
-      c = cola().slice(1); guardado.set("cola", c);
-    }
-  } finally { subiendo = false; mostrarCola(); }
+    if (!audio) { const A = window.AudioContext || window.webkitAudioContext; if (A) audio = new A(); }
+    if (audio && audio.state === "suspended") audio.resume();
+  } catch {}
 }
-addEventListener("online", subirCola);
-setInterval(subirCola, 20000);
+["pointerdown", "touchend", "keydown"].forEach((ev) => addEventListener(ev, desbloquearAudio, {capture: true, passive: true}));
+function tono(tipo) {
+  try {
+    desbloquearAudio();
+    if (audio) {
+      const t0 = audio.currentTime + 0.01;
+      const notas = tipo === "ok" ? [[1760, 0, 0.08]] : tipo === "ya" ? [[1175, 0, 0.06], [1175, 0.1, 0.06]] : [[220, 0, 0.22], [165, 0.26, 0.32]];
+      for (const [f, ini, dur] of notas) {
+        const o = audio.createOscillator(), g = audio.createGain();
+        o.type = tipo === "mal" ? "square" : "sine"; o.frequency.value = f;
+        g.gain.setValueAtTime(0.0001, t0 + ini);
+        g.gain.exponentialRampToValueAtTime(tipo === "mal" ? 0.18 : 0.35, t0 + ini + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + ini + dur);
+        o.connect(g); g.connect(audio.destination);
+        o.start(t0 + ini); o.stop(t0 + ini + dur + 0.03);
+      }
+    }
+  } catch {}
+  try { if (navigator.vibrate) navigator.vibrate(tipo === "ok" ? 50 : tipo === "ya" ? [30, 70, 30] : [220, 90, 220]); } catch {}
+}
+
+// ── confirmación con doble toque (no hay confirm() en la app instalada) ─────────────────────────
+function dobleToque(b, texto = "¿Seguro? Toca otra vez") {
+  if (b.dataset.seguro === "1") { b.dataset.seguro = ""; return true; }
+  const antes = b.innerHTML;
+  b.dataset.seguro = "1"; b.innerHTML = esc(texto); b.classList.add("confirmar");
+  setTimeout(() => { if (b.dataset.seguro === "1") { b.dataset.seguro = ""; b.innerHTML = antes; b.classList.remove("confirmar"); } }, 4000);
+  return false;
+}
+
+// ── avisos de error que llegan después (el servidor rechazó una lectura) ─────────────────────────
+let avisos = [], avisosReloj = null;
+function avisarMal(texto) {
+  avisos.push(texto);
+  clearTimeout(avisosReloj); avisosReloj = setTimeout(() => $("#avisoMal").onclick(), 12000);
+  const el = $("#avisoMal");
+  el.innerHTML = `✗ ${esc(avisos[avisos.length - 1])}` +
+    (avisos.length > 1 ? `<small>y ${avisos.length - 1} aviso${avisos.length > 2 ? "s" : ""} más · revisa la lista en rojo</small>` : "") + `<small>Toca para cerrar</small>`;
+  el.hidden = false;
+}
+$("#avisoMal").onclick = () => { avisos = []; $("#avisoMal").hidden = true; };
+
+// ── las cajas en memoria: la tarjeta sale al tiro, sin esperar al servidor ──────────────────────
+let cajasMem = new Map();
+let cajasAl = 0;
+function cargarCajasMem() {
+  cajasMem = new Map(guardado.get("cajas", []).map((c) => [c.codigo, c]));
+  cajasAl = guardado.get("cajasAl", 0);
+}
+cargarCajasMem();
+function guardarCajasMem() { guardado.set("cajas", [...cajasMem.values()]); }
+let refrescando = null;
+function refrescarCajas() {
+  if (refrescando) return refrescando;
+  refrescando = api("cajas_escaneo").then((l) => {
+    cajasMem = new Map(l.map((c) => [c.codigo, c]));
+    // lo que todavía está en la cola se vuelve a aplicar (el servidor aún no lo sabe)
+    cola().forEach((op) => { const c = cajasMem.get(op.codigo); if (c && op.pred !== "mal") aplicarLocal(c, op.tipo, op.despacho_id); });
+    cajasAl = Date.now(); guardado.set("cajasAl", cajasAl); guardarCajasMem();
+    return l;
+  }).finally(() => { refrescando = null; });
+  return refrescando;
+}
+function aplicarLocal(c, tipo, despacho_id) {
+  if (tipo === "recibida" && c.estado === "en_camino") c.estado = "recibida";
+  else if (tipo === "despachada" && (c.estado === "recibida" || c.estado === "despachada")) { c.estado = "despachada"; c.despacho_id = despacho_id; }
+  else if (tipo === "entregada" && c.estado === "despachada") c.estado = "entregada";
+}
+function actualizarMem(c) {
+  if (!c || !c.codigo) return;
+  const m = cajasMem.get(c.codigo);
+  const campos = {codigo: c.codigo, sku_jp: c.sku_jp, hospital: c.hospital, sku_compo: c.sku_compo, caja_n: c.caja_n, de_n: c.de_n,
+                  unidades: c.unidades, estado: c.estado, despacho_id: c.despacho_id ?? null};
+  if (m) Object.assign(m, campos); else cajasMem.set(c.codigo, campos);
+  guardarCajasMem();
+}
+function cajaDe(codigo) {
+  if (cajasMem.has(codigo)) return cajasMem.get(codigo);
+  const v = /^(JP-[A-Z0-9]+-E\d+-\d+)\|caja\s*(\d+)/i.exec(codigo);   // QR de texto de las primeras etiquetas
+  if (v) for (const c of cajasMem.values()) if (c.sku_jp === v[1].toUpperCase() && c.caja_n === Number(v[2])) return c;
+  return null;
+}
+
+// ── lecturas: cada escaneo queda en la lista con su estado (enviando · ✓ · ya estaba · ✗ · deshecha) ──
+let lecturas = guardado.get("pasada", []);
+let alCambiarLecturas = null;
+function guardarLecturas() { lecturas = lecturas.slice(-300); guardado.set("pasada", lecturas); alCambiarLecturas && alCambiarLecturas(); }
+
+// ── cola: las lecturas suben en lote, en segundo plano; sin señal esperan en el teléfono ─────────
+function cola() {
+  const c = guardado.get("cola", []);
+  let cambio = false;
+  c.forEach((op) => { if (!op.id) { op.id = nuevoId(); cambio = true; } });   // lecturas de la versión anterior
+  if (cambio) guardado.set("cola", c);
+  return c;
+}
+function encolar(op) { const c = cola(); c.push(op); guardado.set("cola", c); mostrarCola(); setTimeout(subirCola, 0); }
+let colaTrabada = false;   // el último intento no llegó al servidor
+function mostrarCola() {
+  const c = sesion ? cola() : [], el = $("#colaAviso");
+  const viejo = c.length && Date.now() - Math.min(...c.map((o) => o.t || Date.parse(o.en) || Date.now())) > 8000;
+  el.hidden = !c.length || !(colaTrabada || viejo || navigator.onLine === false);
+  el.textContent = `📶 ${c.length} lectura${c.length === 1 ? "" : "s"} guardada${c.length === 1 ? "" : "s"} en el teléfono: se suben solas cuando vuelva la señal.`;
+}
+let subiendo = false, vuelo = null, reintento = null;
+const enVuelo = new Set();
+function subirCola() {
+  if (subiendo || !sesion) return vuelo;
+  subiendo = true;
+  vuelo = (async () => {
+    try {
+      for (;;) {
+        const lote = cola().slice(0, 50);
+        if (!lote.length) break;
+        lote.forEach((op) => enVuelo.add(op.id));
+        let res;
+        try { res = await api("marcar_lote", {ops: lote.map(({id, codigo, tipo, despacho_id, en}) => ({id, codigo, tipo, despacho_id, en}))}); }
+        catch (e) {
+          // no llegó (sin señal, servidor caído o sesión vencida): nada se pierde, queda en la cola
+          colaTrabada = true; mostrarCola(); alCambiarLecturas && alCambiarLecturas();
+          clearTimeout(reintento); reintento = setTimeout(subirCola, e instanceof SinRed ? 8000 : 15000);
+          break;
+        } finally { lote.forEach((op) => enVuelo.delete(op.id)); }
+        colaTrabada = false;
+        const hechos = new Set(res.map((r) => r.id));
+        guardado.set("cola", cola().filter((op) => !hechos.has(op.id)));
+        res.forEach((r) => resultadoLectura(r, lote.find((op) => op.id === r.id)));
+        guardarLecturas();
+      }
+    } finally { subiendo = false; vuelo = null; mostrarCola(); }
+  })();
+  return vuelo;
+}
+let resincronizar = null;
+function resultadoLectura(r, op) {
+  const l = lecturas.find((x) => x.id === r.id);
+  if (r.caja) {
+    actualizarMem(r.caja);
+    if (l) { l.estado = r.caja.ya ? "ya" : "ok"; l.ya_estado = r.caja.estado; l.sku = r.caja.sku_jp; l.codigo = r.caja.codigo;
+             if (l.pred === "mal") tono("ok"); l.pred = null; l.msg = ""; }
+  } else {
+    const msg = r.error || "No se pudo marcar";
+    // se devuelve la caja a como estaba antes de la lectura
+    const c = cajasMem.get(op?.codigo);
+    if (c && op?.antes && !op.pred) { c.estado = op.antes; c.despacho_id = op.antes_despacho ?? c.despacho_id; guardarCajasMem(); }
+    if (l) { if (l.pred !== "mal") tono("mal"); l.estado = "mal"; l.msg = msg; l.pred = null; }
+    avisarMal(msg.includes(op?.codigo) ? msg : `${op?.codigo || ""}: ${msg}`);
+    clearTimeout(resincronizar); resincronizar = setTimeout(() => refrescarCajas().catch(() => {}), 1500);   // la lista del teléfono estaba vieja
+    guardado.set("errores", [...guardado.get("errores", []), {...op, error: msg}].slice(-50));
+  }
+}
+addEventListener("online", () => { mostrarCola(); subirCola(); });
+addEventListener("offline", mostrarCola);
+setInterval(() => { mostrarCola(); subirCola(); }, 20000);
+
+// Deshacer una lectura: si todavía no sube, se saca de la cola; si ya subió, se deshace en el servidor.
+async function deshacerLectura(l) {
+  if (enVuelo.has(l.id) && vuelo) await vuelo;
+  const c = cola(), k = c.findIndex((op) => op.id === l.id);
+  if (k >= 0) {
+    const op = c[k]; c.splice(k, 1); guardado.set("cola", c); mostrarCola();
+    const m = cajasMem.get(op.codigo); if (m && op.antes && !op.pred) { m.estado = op.antes; m.despacho_id = op.antes_despacho ?? null; guardarCajasMem(); }
+    l.estado = "deshecha"; l.vuelve = op.antes || ""; guardarLecturas();
+    return;
+  }
+  const d = await api("deshacer", {codigo: l.codigo});
+  actualizarMem(d);
+  l.estado = "deshecha"; l.vuelve = d.estado; guardarLecturas();
+}
 
 // ── login ───────────────────────────────────────────────────────────────────────────────────
 function cerrarSesion(msg) {
   sesion = null; yo = null; guardado.del("sesion"); guardado.del("yo");
-  pararCamara();
+  // la lista de la pasada es de quien estaba: queda solo lo que falta por subir
+  const pend = new Set(cola().map((op) => op.id)); lecturas = lecturas.filter((l) => pend.has(l.id)); guardarLecturas();
+  pararCamara(); pestaña = null;
   $("#app").hidden = true; $("#login").hidden = false; $("#loginError").textContent = msg || "";
   mostrarCola();
 }
@@ -197,7 +388,7 @@ async function entrar(codigo) {
     const r = await api("entrar", {codigo});
     sesion = r.sesion; yo = r.yo; guardado.set("sesion", sesion); guardado.set("yo", yo);
     arrancar();
-  } catch (e) { $("#loginError").textContent = e.message; }
+  } catch (e) { $("#loginError").textContent = e instanceof SinRed ? "Sin conexión: para entrar la primera vez necesitas señal." : e.message; }
   finally { $("#entrar").disabled = false; }
 }
 $("#entrar").onclick = () => entrar($("#codigo").value);
@@ -213,10 +404,16 @@ const PESTAÑAS = {
 function arrancar() {
   $("#login").hidden = true; $("#app").hidden = false;
   $("#yoNombre").textContent = yo.nombre;
-  $("#yoRol").innerHTML = `${ROL[yo.rol]} · <a href="#" id="salir" style="color:#fff">salir</a>`;
-  $("#salir").onclick = async (e) => { e.preventDefault(); try { await api("salir"); } catch {} cerrarSesion(); };
+  $("#yoRol").innerHTML = `${ROL[yo.rol]} · <a href="#" id="salir">salir</a>`;
+  $("#salir").onclick = async (e) => {
+    e.preventDefault();
+    if (!dobleToque(e.currentTarget, "¿salir? toca otra vez")) return;
+    if (cola().length) { avisarMal("Hay lecturas sin subir: espera a tener señal antes de salir."); return; }
+    try { await api("salir"); } catch {}
+    cerrarSesion();
+  };
   const mias = Object.entries(PESTAÑAS).filter(([, p]) => p.roles.includes(yo.rol));
-  $("#nav").innerHTML = mias.map(([k, p]) => `<button data-p="${k}"><b>${p.icono}</b>${p.nombre}</button>`).join("");
+  $("#nav").innerHTML = mias.map(([k, p]) => `<button data-p="${k}"><b aria-hidden="true">${p.icono}</b>${p.nombre}</button>`).join("");
   $("#nav").onclick = (e) => { const b = e.target.closest("button"); if (b) ir(b.dataset.p); };
   api("yo").then((r) => { yo = r; guardado.set("yo", yo); }).catch(() => {});
   mostrarCola(); subirCola();
@@ -225,23 +422,29 @@ function arrancar() {
   mostrarGuia(false);
   const c = new URLSearchParams(location.search).get("c") || guardado.get("pendiente", null);
   guardado.del("pendiente");
-  if (c) { history.replaceState(null, "", location.pathname); verCaja(c); marcarNav(null); }
+  if (c) { history.replaceState(null, "", location.pathname); verCaja(c); }
   else ir(yo.rol === "chofer" ? "viajes" : guardado.get("pestaña", "escanear"));
 }
-function marcarNav(k) { document.querySelectorAll("#nav button").forEach((b) => b.classList.toggle("act", b.dataset.p === k)); }
+function marcarNav(k) { document.querySelectorAll("#nav button").forEach((b) => { b.classList.toggle("act", b.dataset.p === k); b.toggleAttribute("aria-current", b.dataset.p === k); }); }
+function salirDePestaña() { pararCamara(); reabrirCamara = null; alCambiarLecturas = null; pistola = null; if (pestaña) ultimaPestaña = pestaña; pestaña = null; marcarNav(null); }
 function ir(k) {
   if (!PESTAÑAS[k] || !PESTAÑAS[k].roles.includes(yo.rol)) k = "escanear";
-  pararCamara(); pestaña = k; guardado.set("pestaña", k); marcarNav(k);
+  salirDePestaña(); pestaña = k; guardado.set("pestaña", k); marcarNav(k);
+  const el = $("#vista"); el.onclick = null;
   window.scrollTo(0, 0);
-  PESTAÑAS[k].ver($("#vista"));
+  PESTAÑAS[k].ver(el);
 }
 function cargando(el) { el.innerHTML = `<p class="chico">Cargando…</p>`; }
-function fallo(el, e) { el.innerHTML = `<div class="resultado mal">${esc(e.message)}</div>`; }
+function fallo(el, e, reintentar) {
+  el.innerHTML = `<div class="resultado mal">${esc(e instanceof SinRed ? "Sin conexión: no pude cargar esto. Revisa la señal." : e.message)}</div>` +
+    (reintentar ? `<button class="btn sec ancho" id="reintentar">Reintentar</button>` : "");
+  if (reintentar) $("#reintentar").onclick = reintentar;
+}
 
 // ── abrir la app en otro teléfono (código de un uso para uno mismo) ─────────────────────────
 async function otroTelefono() {
-  pararCamara(); marcarNav(null);
-  const el = $("#vista"); cargando(el);
+  salirDePestaña();
+  const el = $("#vista"); el.onclick = null; cargando(el);
   try {
     const r = await api("mi_codigo");
     el.innerHTML = `<div class="tarjeta"><h2>📱 Abrir en otro teléfono</h2>
@@ -249,15 +452,16 @@ async function otroTelefono() {
       <div class="codigo-acceso">${esc(r.codigo)}</div>
       <p class="chico">Sirve una sola vez y vence el ${new Date(r.expira).toLocaleDateString("es-CL")}. Este teléfono sigue abierto.</p>
       <button class="btn sec ancho" id="volverOtro">Volver</button></div>`;
-    $("#volverOtro").onclick = () => ir(pestaña || "escanear");
-  } catch (e) { fallo(el, e); }
+    $("#volverOtro").onclick = () => ir(ultimaPestaña || "escanear");
+  } catch (e) { fallo(el, e, otroTelefono); }
 }
 
 // ── guía de la primera vez (pop-ups por rol; se vuelve a ver con el «?») ───────────────────────
 const PASOS = {
   comun: [["👋", (n) => `Hola ${n}`, "Esta app registra cada caja de filtros de JPMetals: cuando llega a la bodega, cuando sale en un viaje y cuando se entrega en el hospital. Queda quién lo hizo y a qué hora."]],
   bodega: [
-    ["📥", "Recibir en bodega", "Cuando llega el camión: Escanear → «Recibir» y apunta al QR de cada caja (con la cámara o con la pistola). La app te dice qué caja es y suena al leerla."],
+    ["📥", "Recibir en bodega", "Cuando llega el camión: Escanear → «Recibir» y apunta al QR de cada caja (con la cámara o con la pistola). Suena y se pone verde al tiro: puedes seguir con la siguiente sin esperar."],
+    ["↩︎", "¿Te equivocaste?", "Toca «↩︎ Deshacer» dos veces (la lectura, en Recepción o en el viaje). Lo tuyo lo puedes deshacer durante 15 minutos; después, pídeselo a un admin."],
     ["📋", "¿Falta alguna?", "En «Recepción» ves por hospital cuántas cajas llegaron y cuáles faltan contra el packing list."],
     ["🚚", "Cargar un viaje", "Cuando sale el camión: Escanear → «Despachar», elige el viaje arriba y escanea cada caja que sube."],
   ],
@@ -270,7 +474,7 @@ const PASOS = {
     ["🗺️", "Crear viajes", "En «Viajes» → «＋ Nuevo viaje» armas cada viaje (ej. «Alto Hospicio · viaje 1») antes de despachar."],
     ["👥", "Invitar gente", "En «Personas» → «Invitar» creas el acceso de cada persona y se lo mandas por WhatsApp. Al chofer lo desactivas al terminar."],
   ],
-  final: [["📶", "Sin señal, igual funciona", "Si no hay internet, escanea igual: los escaneos se guardan en el teléfono y se suben solos cuando vuelve la señal. Arriba, «?» te muestra esta ayuda otra vez y «📱» te da un código para entrar desde otro teléfono."]],
+  final: [["📶", "Sin señal, igual funciona", "Si no hay internet, escanea igual: las lecturas se guardan en el teléfono y se suben solas cuando vuelve la señal. Si el servidor rechaza alguna, suena distinto y queda en rojo en la lista. Arriba, «?» te muestra esta ayuda otra vez y «📱» te da un código para entrar desde otro teléfono."]],
 };
 function pasosDe(rol) {
   if (rol === "chofer") return [...PASOS.comun, ...PASOS.chofer, ...PASOS.final];
@@ -294,15 +498,20 @@ function mostrarGuia(forzar) {
   const cerrar = () => { $("#guia").hidden = true; guardado.set(clave, true); };
   $("#gSig").onclick = () => { if (i < pasos.length - 1) { i++; pintar(); } else cerrar(); };
   $("#gSaltar").onclick = cerrar;
-  pintar(); $("#guia").hidden = false;
+  pintar(); $("#guia").hidden = false; $("#gSig").focus();
 }
 
 // ── escáner ─────────────────────────────────────────────────────────────────────────────────
-let flujo = null, bucle = null;
+let flujo = null, bucle = null, camGen = 0, reabrirCamara = null;
 function pararCamara() {
-  if (bucle) cancelAnimationFrame(bucle), bucle = null;
+  camGen++;
+  if (bucle) clearTimeout(bucle), bucle = null;
   if (flujo) flujo.getTracks().forEach((t) => t.stop()), flujo = null;
 }
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) pararCamara();   // no gastar batería con la app en segundo plano
+  else { reabrirCamara && reabrirCamara(); mostrarCola(); subirCola(); }
+});
 function codigoDe(texto) {
   const t = String(texto).trim();
   try { const u = new URL(t); const c = (u.searchParams.get("c") || "").toUpperCase(); if (/^(E\d+-\d{4}|PRUEBA)$/.test(c)) return c; } catch {}
@@ -316,128 +525,243 @@ function codigoDe(texto) {
   if (/PRUEBA/i.test(t)) return "PRUEBA";
   return /^JP-[A-Z0-9]+-E\d+-\d+\|caja\s*\d+/i.test(t) ? t : null;   // QR de texto de las primeras etiquetas
 }
-async function abrirCamara(video, estado, alLeer) {
+async function abrirCamara(video, estado, alLeer, alLeerOtro) {
   pararCamara();
+  const gen = camGen;
+  if (!navigator.mediaDevices?.getUserMedia) { estado.textContent = "Este navegador no deja usar la cámara: usa la pistola o escribe el código abajo."; return; }
+  estado.textContent = "Abriendo cámara…";
+  let f;
   try {
-    flujo = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment", width: {ideal: 1920}, height: {ideal: 1080}}, audio: false});
-  } catch (e) { estado.textContent = "No pude abrir la cámara: revisa el permiso en Ajustes o escribe el código abajo."; return; }
-  video.srcObject = flujo; video.setAttribute("playsinline", ""); await video.play();
+    f = await navigator.mediaDevices.getUserMedia({video: {facingMode: "environment", width: {ideal: 1280}, height: {ideal: 720}}, audio: false});
+  } catch (e) { if (gen === camGen) estado.textContent = "No pude abrir la cámara: revisa el permiso en Ajustes, o usa la pistola o el código abajo."; return; }
+  if (gen !== camGen || !video.isConnected) { f.getTracks().forEach((t) => t.stop()); return; }   // ya se fue de la pantalla
+  flujo = f;
+  video.setAttribute("playsinline", ""); video.muted = true; video.srcObject = flujo;
+  try { await video.play(); } catch {}
   estado.textContent = "Apunta al QR de la etiqueta";
   const lienzo = document.createElement("canvas"), ctx = lienzo.getContext("2d", {willReadFrequently: true});
-  const detector = "BarcodeDetector" in window ? new BarcodeDetector({formats: ["qr_code"]}) : null;
-  let ultimo = "", ultimoT = 0, ocupado = false;
+  let detector = null;
+  try { if ("BarcodeDetector" in window && (await BarcodeDetector.getSupportedFormats()).includes("qr_code")) detector = new BarcodeDetector({formats: ["qr_code"]}); } catch {}
+  let ultimo = "", ultimoT = 0;
   const paso = async () => {
-    if (!flujo) return;
-    if (!ocupado && video.readyState >= 2) {
-      ocupado = true;
+    if (!flujo || gen !== camGen) return;
+    if (video.readyState >= 2 && video.videoWidth) {
       let texto = null;
       try {
         if (detector) { const r = await detector.detect(video); texto = r[0]?.rawValue || null; }
-        else {
-          const w = Math.min(960, video.videoWidth || 960), h = Math.round(w * video.videoHeight / video.videoWidth);
+        else if (window.jsQR) {
+          const w = Math.min(800, video.videoWidth), h = Math.round(w * video.videoHeight / video.videoWidth);
           lienzo.width = w; lienzo.height = h; ctx.drawImage(video, 0, 0, w, h);
-          texto = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "attemptBoth"})?.data || null;
+          texto = jsQR(ctx.getImageData(0, 0, w, h).data, w, h, {inversionAttempts: "dontInvert"})?.data || null;
         }
       } catch {}
+      if (gen !== camGen) return;
       const c = texto && codigoDe(texto);
-      if (texto && !c && texto !== ultimo) {
+      if (texto && (texto !== ultimo || Date.now() - ultimoT > 4000)) {
         ultimo = texto; ultimoT = Date.now();
-        $("#ultimo") && ($("#ultimo").innerHTML = tarjetaResultado("mal", "Leí un QR, pero no es de una caja", null, `<div class="chico" style="word-break:break-all">${esc(texto.slice(0, 120))}</div>`));
+        if (c) {
+          const v = video.closest("#visor"); v && (v.classList.add("flash"), setTimeout(() => v.classList.remove("flash"), 250));
+          alLeer(c);
+        } else alLeerOtro && alLeerOtro(texto);
       }
-      if (c && (c !== ultimo || Date.now() - ultimoT > 4000)) {
-        ultimo = c; ultimoT = Date.now();
-        if (navigator.vibrate) navigator.vibrate(60);
-        await alLeer(c);
-      }
-      ocupado = false;
     }
-    bucle = requestAnimationFrame(paso);
+    bucle = setTimeout(paso, detector ? 90 : 160);
   };
-  bucle = requestAnimationFrame(paso);
+  paso();
 }
 
 function tarjetaResultado(clase, titulo, c, extra = "") {
   return `<div class="resultado ${clase}"><div class="grande">${esc(titulo)}</div>` +
-    (c ? `<div><b>${esc(c.codigo)}</b> · ${esc(c.sku_jp)} · caja ${c.caja_n} de ${c.de_n} · ${c.unidades} u</div>
-          <div class="chico">${esc(c.hospital)} · ${esc(c.sku_compo || "")}</div>` : "") + extra + `</div>`;
+    (c && c.sku_jp ? `<div class="sku">${esc(c.sku_jp)}</div><div><b>${esc(c.codigo)}</b> · caja ${c.caja_n} de ${c.de_n} · ${c.unidades} filtro${c.unidades === 1 ? "" : "s"}</div>
+          <div class="chico">${esc(c.hospital)}${c.sku_compo ? " · " + esc(c.sku_compo) : ""}</div>` : c?.codigo ? `<div><b>${esc(c.codigo)}</b></div>` : "") + extra + `</div>`;
+}
+
+// Cómo se ve una lectura según su estado
+function vistaLectura(l) {
+  const verbo = VERBO[l.tipo] || "";
+  if (l.estado === "ok") return {clase: "ok", ic: "✓", titulo: `✓ ${verbo}`};
+  if (l.estado === "ya") return {clase: "ya", ic: "=", titulo: `Ya estaba: ${ESTADO[l.ya_estado] || "marcada"}`};
+  if (l.estado === "mal") return {clase: "mal", ic: "✗", titulo: `✗ ${l.msg}`};
+  if (l.estado === "deshecha") return {clase: "ya", ic: "↩︎", titulo: `↩︎ Deshecha${l.vuelve ? `: vuelve a «${ESTADO[l.vuelve]}»` : ""}`};
+  // enviando: se muestra lo que se sabe en el teléfono, el servidor confirma después
+  if (l.pred === "mal") return {clase: "mal", ic: "✗", titulo: `✗ ${l.msg}`};
+  if (l.pred === "ya") return {clase: "ya", ic: "=", titulo: `Ya estaba: ${ESTADO[l.ya_estado] || "marcada"}`};
+  return {clase: "ok", ic: "✓", titulo: `✓ ${verbo}`};
+}
+function notaEnvio(l) {
+  if (l.estado !== "enviando") return "";
+  const enCola = cola().some((op) => op.id === l.id);
+  return enCola && (colaTrabada || navigator.onLine === false) ? "📶 guardada en el teléfono, sube sola" : "⏳ guardando…";
 }
 
 function verEscanear(el) {
   const modos = yo.rol === "chofer" ? ["entregada"] : yo.rol === "bodega" ? ["recibida", "despachada"] : ["recibida", "despachada", "entregada"];
   let modo = modos.includes(guardado.get("modo")) ? guardado.get("modo") : modos[0];
   let viaje = guardado.get("viajeEsc", null);
-  let hechos = [];
+  let viajes = guardado.get("viajes", []);
+  let ultimaId = null;          // la lectura que se muestra grande
+  let camOn = guardado.get("camara", true);
   el.innerHTML = `
-    <div class="modos" id="modos">${modos.map((m) => `<button data-m="${m}">${{recibida: "📥 Recibir", despachada: "🚚 Despachar", entregada: "🏥 Entregar"}[m]}</button>`).join("")}</div>
-    <div id="pistolaEstado" class="pastilla" style="display:block;text-align:center;padding:8px;margin-bottom:8px;font-size:14px"></div>
+    <div class="modos" id="modos" role="group" aria-label="Qué estás haciendo">${modos.map((m) => `<button data-m="${m}">${{recibida: "📥 Recibir", despachada: "🚚 Despachar", entregada: "🏥 Entregar"}[m]}</button>`).join("")}</div>
+    <div id="eligeViaje" hidden><label for="selViaje">Viaje en que suben las cajas</label><select id="selViaje"></select></div>
+    <div id="pistolaEstado" class="pastilla" style="display:block;text-align:center;padding:8px;margin:8px 0;font-size:14px;white-space:normal"></div>
     <input id="pistolaIn" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
-      placeholder="🔫 Toca aquí para activar la pistola" aria-label="Lectura de la pistola"
-      style="text-align:center;margin-bottom:8px;font-size:15px;border:2px dashed #d6d3d1">
-    <div id="eligeViaje" hidden><label>Viaje</label><select id="selViaje"></select></div>
-    <div id="visor"><video muted></video><div class="marco"></div><div class="estado" id="camEstado">Abriendo cámara…</div></div>
-    <div class="fila" style="flex-wrap:nowrap"><input id="manual" placeholder="o escribe el código: E1-0427" autocapitalize="characters"><button class="btn sec" id="manualOk">OK</button></div>
-    <div id="ultimo" style="margin-top:10px"></div>
-    <div class="tarjeta" id="sesionBox" hidden><h3>En esta pasada</h3><div id="sesionLista" class="chico"></div></div>`;
+      placeholder="🔫 Toca aquí para activar la pistola" aria-label="Lectura de la pistola">
+    <div id="ultimo" aria-live="polite"></div>
+    <div class="fila" style="margin-bottom:8px"><button class="btn sec mini" id="camBtn" style="flex:1"></button></div>
+    <div id="visor"><video muted playsinline></video><div class="marco"></div><div class="estado" id="camEstado">Abriendo cámara…</div></div>
+    <div class="fila" style="flex-wrap:nowrap"><input id="manual" placeholder="o escribe el código: E1-0427" autocapitalize="characters" autocorrect="off" spellcheck="false" enterkeyhint="go" aria-label="Código de la caja"><button class="btn sec" id="manualOk">OK</button></div>
+    <div class="tarjeta" id="sesionBox" style="margin-top:12px" hidden>
+      <div class="fila entre"><h3 style="margin:0">En esta pasada</h3><button class="btn sec mini" id="limpiar">Limpiar lista</button></div>
+      <div id="sesionResumen" class="chico" style="margin:6px 0"></div><div id="sesionLista"></div></div>
+    <p class="chico" id="memEstado" style="text-align:center"></p>`;
+
   const pintarModo = () => {
-    el.querySelectorAll("#modos button").forEach((b) => b.classList.toggle("act", b.dataset.m === modo));
+    el.querySelectorAll("#modos button").forEach((b) => { b.classList.toggle("act", b.dataset.m === modo); b.setAttribute("aria-pressed", b.dataset.m === modo); });
     $("#eligeViaje").hidden = modo !== "despachada";
   };
-  $("#modos").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; modo = b.dataset.m; guardado.set("modo", modo); pintarModo(); };
+  $("#modos").onclick = (e) => { const b = e.target.closest("button"); if (!b) return; modo = b.dataset.m; guardado.set("modo", modo); pintarModo(); pintarLista(); };
   pintarModo();
+
+  const pintarMem = () => {
+    if (!$("#memEstado")) return;
+    const n = cajasMem.size;
+    $("#memEstado").textContent = n ? `📦 ${n} caja${n === 1 ? "" : "s"} en el teléfono${cajasAl ? " · al día a las " + horaCorta(cajasAl) : ""}` : "Cargando la lista de cajas…";
+  };
+  pintarMem();
+  refrescarCajas().then(() => { pintarMem(); pintarLista(); }).catch(() => pintarMem());
+
   if (modos.includes("despachada")) {
-    api("viajes").then((vs) => {
+    const pintarViajes = (vs) => {
       const abiertos = vs.filter((v) => v.estado !== "entregado");
       $("#selViaje").innerHTML = `<option value="">— elige el viaje —</option>` +
-        abiertos.map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga || "viaje " + v.id)}${v.salida ? " · " + fecha(v.salida) : ""} (${v.cajas} cajas)</option>`).join("");
-      if (viaje && abiertos.some((v) => v.id === viaje)) $("#selViaje").value = viaje;
-      guardado.set("viajes", vs);
-    }).catch(() => {
-      const vs = guardado.get("viajes", []);
-      $("#selViaje").innerHTML = `<option value="">— elige el viaje —</option>` + vs.map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga)}</option>`).join("");
-      if (viaje) $("#selViaje").value = viaje;
-    });
-    $("#selViaje").onchange = () => { viaje = Number($("#selViaje").value) || null; guardado.set("viajeEsc", viaje); };
+        abiertos.map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga || "viaje " + v.id)}${v.salida ? " · " + fecha(v.salida) : ""}${v.cajas != null ? ` (${v.cajas} cajas)` : ""}</option>`).join("");
+      if (viaje && abiertos.some((v) => v.id === viaje)) $("#selViaje").value = viaje; else viaje = null;
+    };
+    pintarViajes(viajes);
+    api("viajes").then((vs) => { viajes = vs; guardado.set("viajes", vs); if ($("#selViaje")) pintarViajes(vs); }).catch(() => {});
+    // tras elegir, se suelta el foco para que la pistola no «escriba» en la lista
+    $("#selViaje").onchange = () => { viaje = Number($("#selViaje").value) || null; guardado.set("viajeEsc", viaje); $("#selViaje").blur(); };
   }
-  const resumen = () => {
-    $("#sesionBox").hidden = !hechos.length;
+
+  // ── lista de la pasada ──
+  const pintarUltimo = () => {
+    const l = lecturas.find((x) => x.id === ultimaId); if (!l) return;
+    const v = vistaLectura(l), c = cajasMem.get(l.codigo) || {codigo: l.codigo};
+    const puede = (l.estado === "ok" || (l.estado === "enviando" && !l.pred)) && (yo.rol === "admin" || Date.now() - l.t < 15 * 60e3);
+    $("#ultimo").innerHTML = tarjetaResultado(v.clase, v.titulo, c,
+      (notaEnvio(l) ? `<div class="chico" style="margin-top:4px">${notaEnvio(l)}</div>` : "") +
+      (puede ? `<button class="btn sec mini" data-deshacer="${l.id}" style="margin-top:8px">↩︎ Deshacer (me equivoqué)</button>` : ""));
+  };
+  const pintarLista = () => {
+    if (!$("#sesionLista")) return;
+    const mias = lecturas.slice(-60).reverse();
+    $("#sesionBox").hidden = !mias.length;
+    const buenas = lecturas.filter((l) => l.tipo === modo && (l.estado === "ok" || (l.estado === "enviando" && !l.pred)));
     const porSku = {};
-    hechos.forEach((h) => { porSku[h.sku] = (porSku[h.sku] || 0) + 1; });
-    $("#sesionLista").innerHTML = `${hechos.length} caja${hechos.length === 1 ? "" : "s"} · ` +
-      Object.entries(porSku).map(([s, n]) => `${esc(s)}: ${n}`).join(" · ");
+    buenas.forEach((l) => { const s = l.sku || "?"; porSku[s] = (porSku[s] || 0) + 1; });
+    const malas = lecturas.filter((l) => l.estado === "mal").length;
+    $("#sesionResumen").innerHTML = `${ICONO_TIPO[modo]} ${{recibida: "Recibidas", despachada: "Despachadas", entregada: "Entregadas"}[modo]}: <b>${buenas.length}</b>${buenas.length ? " · " + Object.entries(porSku).map(([s, n]) => `${esc(s)}: ${n}`).join(" · ") : ""}` +
+      (malas ? ` · <span style="color:var(--mal);font-weight:700">${malas} con error</span>` : "");
+    $("#sesionLista").innerHTML = mias.map((l) => {
+      const v = vistaLectura(l);
+      const estadoTxt = l.estado === "enviando" ? (l.pred === "mal" ? `<span class="msg">${esc(l.msg)}</span> · confirmando…` : notaEnvio(l))
+        : l.estado === "mal" ? `<span class="msg">${esc(l.msg)}</span>` : l.estado === "ya" ? `ya estaba ${esc((ESTADO[l.ya_estado] || "").toLowerCase())}`
+        : l.estado === "deshecha" ? "deshecha" : "✓ guardada";
+      const puede = (l.estado === "ok" || (l.estado === "enviando" && !l.pred)) && (yo.rol === "admin" || Date.now() - l.t < 15 * 60e3);
+      return `<div class="lect ${l.estado === "mal" || (l.estado === "enviando" && l.pred === "mal") ? "mal" : l.estado}">
+        <span class="ic" aria-hidden="true">${l.estado === "enviando" && !l.pred ? "⏳" : v.ic}</span>
+        <div class="q"><b>${esc(l.codigo)}</b> ${ICONO_TIPO[l.tipo] || ""} <span class="chico">${esc(l.sku || "")} · ${horaCorta(l.t)}</span><div class="chico">${estadoTxt}</div></div>
+        ${puede ? `<button class="btn sec mini" data-deshacer="${l.id}" aria-label="Deshacer ${esc(l.codigo)}">↩︎</button>` : ""}</div>`;
+    }).join("");
   };
-  const leer = async (codigo) => {
-    const u = $("#ultimo");
-    if (codigo === "PRUEBA") { u.innerHTML = tarjetaResultado("ok", "✓ QR de prueba leído", null, `<div class="chico">La lectura funciona. No se marcó ninguna caja.</div>`); return; }
-    if (modo === "despachada" && !viaje) { u.innerHTML = tarjetaResultado("mal", "Primero elige el viaje"); return; }
-    const op = {codigo, tipo: modo, despacho_id: modo === "despachada" ? viaje : null, en: new Date().toISOString()};
-    try {
-      const c = await api("marcar", op);
-      const verbo = {recibida: "Recibida en bodega", despachada: "Despachada", entregada: "Entregada"}[modo];
-      // Isi, 02-nov-2026: «si alguien se equivoca con el QR debería poder sacarlo»: quien lo marcó lo deshace
-      // aquí mismo (15 min); después, un admin desde la caja.
-      u.innerHTML = tarjetaResultado(c.ya ? "ya" : "ok", c.ya ? `Ya estaba: ${ESTADO[c.estado]}` : `✓ ${verbo}`, c,
-        c.ya ? "" : `<button class="btn sec" id="deshacerUlt" style="margin-top:8px;min-height:40px;padding:8px 14px">↩︎ Deshacer (me equivoqué)</button>`);
-      if (!c.ya) {
-        hechos.unshift({codigo: c.codigo, sku: c.sku_jp}); resumen();
-        $("#deshacerUlt").onclick = async (ev) => {
-          const b = ev.currentTarget; b.disabled = true;
-          try {
-            const d = await api("deshacer", {codigo: c.codigo});
-            u.innerHTML = tarjetaResultado("ya", `↩︎ Deshecho: ${c.codigo} vuelve a «${ESTADO[d.estado]}»`, d);
-            const k = hechos.findIndex((h) => h.codigo === c.codigo); if (k >= 0) hechos.splice(k, 1); resumen();
-          } catch (er) { u.insertAdjacentHTML("beforeend", tarjetaResultado("mal", er.message)); b.disabled = false; }
-        };
-      }
-    } catch (e) {
-      if (e instanceof SinRed) { encolar(op); u.innerHTML = tarjetaResultado("cola", `📶 ${codigo} guardada sin señal`, null, `<div class="chico">Se sube sola cuando vuelva la conexión, con la hora de ahora.</div>`); hechos.unshift({codigo, sku: "sin señal"}); resumen(); }
-      else u.innerHTML = tarjetaResultado("mal", e.message);
+  // si hay un «¿Seguro?» esperando el segundo toque, no se repinta encima (se perdería la confirmación)
+  alCambiarLecturas = () => {
+    if (!el.isConnected) return;
+    if (el.querySelector('[data-seguro="1"]')) { clearTimeout(el._repinta); el._repinta = setTimeout(() => alCambiarLecturas && alCambiarLecturas(), 600); return; }
+    pintarUltimo(); pintarLista();
+  };
+  pintarLista();
+  $("#limpiar").onclick = (e) => {
+    if (!dobleToque(e.currentTarget, "¿Limpiar? Toca otra vez")) return;
+    const pend = new Set(cola().map((op) => op.id));
+    lecturas = lecturas.filter((l) => pend.has(l.id)); ultimaId = null; $("#ultimo").innerHTML = ""; guardarLecturas();
+  };
+  el.onclick = async (e) => {
+    const b = e.target.closest("button[data-deshacer]"); if (!b) return;
+    if (!dobleToque(b, b.textContent.length > 3 ? "¿Seguro? Toca otra vez para deshacer" : "¿Seguro?")) return;
+    const l = lecturas.find((x) => x.id === b.dataset.deshacer); if (!l) return;
+    b.disabled = true;
+    try { await deshacerLectura(l); tono("ya"); }
+    catch (er) { b.disabled = false; tono("mal"); avisarMal(`${l.codigo}: ${er instanceof SinRed ? "sin señal, no se pudo deshacer. Prueba de nuevo con señal." : er.message}`); }
+  };
+
+  // ── leer: la respuesta sale al tiro con lo que hay en el teléfono; el servidor confirma por detrás ──
+  let ultLectura = "", ultLecturaT = 0;
+  const leer = (leido) => {
+    if (leido === "PRUEBA") {
+      tono("ok");
+      $("#ultimo").innerHTML = tarjetaResultado("ok", "✓ QR de prueba leído", null, `<div class="chico">La lectura funciona. No se marcó ninguna caja.</div>`); ultimaId = null; return;
     }
+    if (modo === "despachada" && !viaje) { tono("mal"); $("#ultimo").innerHTML = tarjetaResultado("mal", "Primero elige el viaje (arriba)"); ultimaId = null; return; }
+    const caja = cajaDe(leido);
+    const codigo = caja ? caja.codigo : leido;
+    // la pistola a veces dispara dos veces seguidas: se ignora la repetición inmediata
+    if (codigo === ultLectura && Date.now() - ultLecturaT < 1500) return;
+    ultLectura = codigo; ultLecturaT = Date.now();
+    // ya leída en esta pasada (mismo paso): no se manda de nuevo
+    // (si después se deshizo desde otra pantalla, la caja ya no está así y se vuelve a marcar)
+    const sigue = !caja || (modo === "recibida" ? caja.estado !== "en_camino" : modo === "despachada" ? caja.estado === "despachada" && caja.despacho_id === viaje : caja.estado === "entregada");
+    const previa = sigue && [...lecturas].reverse().find((l) => l.codigo === codigo && l.tipo === modo && (l.tipo !== "despachada" || l.despacho_id === viaje) &&
+      (l.estado === "ok" || l.estado === "ya" || (l.estado === "enviando" && l.pred !== "mal")));
+    if (previa) {
+      tono("ya"); ultimaId = previa.id;
+      $("#ultimo").innerHTML = tarjetaResultado("ya", `Ya la leíste a las ${horaCorta(previa.t)}`, caja || {codigo}, `<div class="chico">No se marca dos veces.</div>`);
+      return;
+    }
+    // lo que se sabe en el teléfono
+    let pred = null, msg = "";
+    if (caja) {
+      if (modo === "recibida" && caja.estado !== "en_camino") pred = "ya";
+      if (modo === "despachada") {
+        if (caja.estado === "en_camino") { pred = "mal"; msg = "No está recibida en bodega"; }
+        else if (caja.estado === "entregada") { pred = "mal"; msg = "Ya se entregó"; }
+        else if (caja.estado === "despachada" && caja.despacho_id === viaje) pred = "ya";
+      }
+      if (modo === "entregada") {
+        if (caja.estado === "entregada") pred = "ya";
+        else if (caja.estado !== "despachada") { pred = "mal"; msg = caja.estado === "en_camino" ? "No ha llegado a bodega ni se despachó" : "No está despachada en un viaje"; }
+      }
+    } else if (cajasMem.size) { pred = "mal"; msg = yo.rol === "chofer" ? "Esta caja no es de tu viaje" : "No encuentro esta caja"; }
+    const l = {id: nuevoId(), codigo, tipo: modo, despacho_id: modo === "despachada" ? viaje : null, t: Date.now(),
+               estado: "enviando", pred, msg, sku: caja?.sku_jp || "", ya_estado: caja?.estado};
+    const op = {id: l.id, codigo, tipo: modo, despacho_id: l.despacho_id, en: new Date().toISOString(), t: l.t,
+                antes: caja?.estado, antes_despacho: caja?.despacho_id ?? null, pred};
+    if (caja && !pred) { aplicarLocal(caja, modo, l.despacho_id); guardarCajasMem(); }
+    tono(pred === "mal" ? "mal" : pred === "ya" ? "ya" : "ok");
+    lecturas.push(l); ultimaId = l.id;
+    guardarLecturas();
+    encolar(op);
   };
-  $("#manualOk").onclick = () => { const c = codigoDe($("#manual").value) || $("#manual").value.trim().toUpperCase(); if (c) { leer(c); $("#manual").value = ""; } };
-  $("#manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#manualOk").click(); });
-  abrirCamara($("#visor video"), $("#camEstado"), leer);
+  const leerOtro = (texto) => {
+    tono("mal"); ultimaId = null;
+    $("#ultimo").innerHTML = tarjetaResultado("mal", "Leí un QR, pero no es de una caja", null, `<div class="chico" style="word-break:break-all">${esc(texto.slice(0, 120))}</div>`);
+  };
+  $("#manualOk").onclick = () => { const t = $("#manual").value; const c = codigoDe(t) || t.trim().toUpperCase(); if (c) { leer(c); $("#manual").value = ""; } };
+  $("#manual").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#manualOk").click(); } });
+
+  // ── cámara (se puede apagar si se usa solo la pistola) ──
+  const pintarCam = () => {
+    $("#camBtn").textContent = camOn ? "📷 Apagar cámara (uso la pistola)" : "📷 Encender cámara";
+    $("#visor").hidden = !camOn;
+    if (camOn) abrirCamara($("#visor video"), $("#camEstado"), leer, leerOtro); else pararCamara();
+  };
+  $("#camBtn").onclick = () => { camOn = !camOn; guardado.set("camara", camOn); pintarCam(); };
+  reabrirCamara = () => { if (camOn && $("#visor video")) abrirCamara($("#visor video"), $("#camEstado"), leer, leerOtro); };
+  pintarCam();
+
   // Pistola lectora Bluetooth (modo teclado): «escribe» el link del QR muy rápido. Hay pistolas que terminan con
-  // Enter y otras que no (de fábrica muchas Netum no): se procesa con Enter o cuando paran las teclas (250 ms).
+  // Enter y otras que no (de fábrica muchas Netum no): se procesa con Enter o cuando paran las teclas (120 ms).
   // Lo más seguro es el campo «Toca aquí para activar la pistola» (no abre el teclado de la pantalla); sin foco
   // también se capta. Una página no puede ver si la pistola está emparejada: se marca al llegar la 1ª lectura.
   pintarPistola();
@@ -452,24 +776,25 @@ function verEscanear(el) {
     guardado.set("pistolaVista", Date.now()); pintarPistola();
     const c = codigoDe(texto);
     if (c) leer(c);
-    else $("#ultimo").innerHTML = tarjetaResultado("mal", "🔫 La pistola leyó algo, pero no es una caja", null,
-      `<div class="chico" style="word-break:break-all">Leí: ${esc(texto.slice(0, 120))}</div>`);
+    else { tono("mal"); ultimaId = null; $("#ultimo").innerHTML = tarjetaResultado("mal", "🔫 La pistola leyó algo, pero no es una caja", null,
+      `<div class="chico" style="word-break:break-all">Leí: ${esc(texto.slice(0, 120))}</div>`); }
   };
-  campo.addEventListener("focus", () => { campo.placeholder = "🔫 Pistola activa: dispara al QR"; campo.style.borderColor = "var(--ok)"; });
-  campo.addEventListener("blur", () => { campo.placeholder = "🔫 Toca aquí para activar la pistola"; campo.style.borderColor = "#d6d3d1"; });
-  campo.addEventListener("input", () => { clearTimeout(espera); espera = setTimeout(procesar, 250); });
+  campo.addEventListener("focus", () => { campo.placeholder = "🔫 Pistola activa: dispara al QR"; campo.classList.add("activa"); });
+  campo.addEventListener("blur", () => { campo.placeholder = "🔫 Toca aquí para activar la pistola"; campo.classList.remove("activa"); });
+  campo.addEventListener("input", () => { clearTimeout(espera); espera = setTimeout(procesar, 120); });
   pistola = (e) => {
-    if (pestaña !== "escanear") return;
+    if (pestaña !== "escanear" || !campo.isConnected) return;
     if (e.target === campo) {
       if (e.key === "Enter") { e.preventDefault(); procesar(); }
       return;
     }
-    if (e.target.matches?.("input,select,textarea")) return;   // el campo de código manual se maneja solo
+    if (e.target.matches?.("input,textarea")) return;   // el campo de código manual se maneja solo
+    if (e.target.matches?.("select")) e.target.blur();
     const ahora = Date.now();
     if (ahora - ultimaTecla > 150) { buf = ""; rafaga = 0; }
     ultimaTecla = ahora;
-    if (e.key === "Enter") { e.preventDefault(); procesar(); }
-    else if (e.key && e.key.length === 1) { buf += e.key; rafaga++; clearTimeout(espera); espera = setTimeout(procesar, 250); }
+    if (e.key === "Enter") { if (buf) { e.preventDefault(); procesar(); } }
+    else if (e.key && e.key.length === 1) { buf += e.key; rafaga++; if (rafaga > 1) e.preventDefault(); clearTimeout(espera); espera = setTimeout(procesar, 120); }
   };
 }
 function pintarPistola() {
@@ -479,7 +804,7 @@ function pintarPistola() {
   el.style.background = reciente ? "var(--okf)" : "#f5f5f4";
   el.style.color = reciente ? "var(--ok)" : "var(--suave)";
   el.textContent = reciente
-    ? `🔫 Pistola conectada ✓ · última lectura ${new Date(t).toLocaleTimeString("es-CL", {hour: "2-digit", minute: "2-digit"})}`
+    ? `🔫 Pistola conectada ✓ · última lectura ${horaCorta(t)}`
     : "🔫 Pistola: sin lecturas todavía. Conéctala por Bluetooth y aprieta el gatillo sobre un QR para probar.";
 }
 let pistola = null;
@@ -487,41 +812,47 @@ document.addEventListener("keydown", (e) => pistola && pistola(e));
 
 // ── una caja (al abrir el QR con la cámara del teléfono) ─────────────────────────────────────
 async function verCaja(codigo) {
-  const el = $("#vista");
+  salirDePestaña();
+  const el = $("#vista"); el.onclick = null;
   if (codigo === "PRUEBA") { el.innerHTML = tarjetaResultado("ok", "✓ QR de prueba", null, `<div class="chico">El QR abre la app bien. Ahora prueba en Escanear con la cámara o la pistola.</div>`); return; }
   cargando(el);
   try {
     const c = await api("caja", {codigo});
+    actualizarMem(c);
     const pasos = [["Recibida en bodega", c.recibida_en, c.recibida_por], ["Despachada" + (c.viaje ? ` · ${c.viaje.hospital} · ${c.viaje.carga || ""}` : ""), c.despachada_en, c.despachada_por],
                    ["Entregada en el hospital", c.entregada_en, c.entregada_por]];
     const acciones = [];
     if (["admin", "bodega"].includes(yo.rol) && c.estado === "en_camino") acciones.push(["recibida", "📥 Marcar recibida"]);
-    if (yo.rol === "admin" && c.estado === "despachada" || yo.rol === "chofer" && c.estado === "despachada") acciones.push(["entregada", "🏥 Marcar entregada"]);
+    if ((yo.rol === "admin" || yo.rol === "chofer") && c.estado === "despachada") acciones.push(["entregada", "🏥 Marcar entregada"]);
     el.innerHTML = `<div class="tarjeta">
-      <div class="fila" style="justify-content:space-between"><h2 style="margin:0">${esc(c.codigo)}</h2><span class="pastilla p-${c.estado}">${ESTADO[c.estado]}</span></div>
+      <div class="fila entre"><h2 style="margin:0">${esc(c.codigo)}</h2><span class="pastilla p-${c.estado}">${ESTADO[c.estado]}</span></div>
       <div style="font-size:22px;font-weight:700;margin-top:6px">${esc(c.sku_jp)}</div>
       <div>${esc(c.hospital)} · caja ${c.caja_n} de ${c.de_n} · <b>${c.unidades} filtro(s)</b></div>
       <div class="chico">${esc(c.descripcion || "")}<br>Compo ${esc(c.sku_compo)} · OC COMPO ${esc(c.oc_compo || "—")}</div>
       <ul class="lista" style="margin-top:10px">${pasos.map(([t, en, por]) => `<li>${en ? "✅" : "⬜"} ${esc(t)}${en ? `<div class="chico">${hora(en)} · ${esc(por)}</div>` : ""}</li>`).join("")}</ul>
       <div id="accCaja" style="display:grid;gap:8px;margin-top:8px">${acciones.map(([t, n]) => `<button class="btn ancho" data-t="${t}">${n}</button>`).join("")}
       ${["admin", "bodega"].includes(yo.rol) && c.estado !== "entregada" ? `<button class="btn sec ancho" data-ir="escanear">🚚 Para despachar, usa Escanear → Despachar</button>` : ""}
-      ${c.estado !== "en_camino" ? `<button class="btn sec ancho" data-deshacer="1">↩︎ Deshacer el último paso${yo.rol === "admin" ? "" : " (solo lo tuyo, 15 min)"}</button>` : ""}</div>
-      <div id="cajaMsg"></div></div>`;
+      ${c.estado !== "en_camino" ? `<button class="btn sec ancho" data-deshacer="1">↩︎ Deshacer «${esc(ESTADO[c.estado])}»${yo.rol === "admin" ? "" : " (solo lo tuyo, 15 min)"}</button>` : ""}
+      <button class="btn sec ancho" data-ir="${yo.rol === "chofer" ? "viajes" : "escanear"}">← Volver</button></div>
+      <div id="cajaMsg" aria-live="polite"></div></div>`;
     $("#accCaja").onclick = async (e) => {
       const b = e.target.closest("button"); if (!b) return;
       if (b.dataset.ir) return ir(b.dataset.ir);
+      if (b.dataset.deshacer && !dobleToque(b, "¿Seguro? Toca otra vez para deshacer")) return;
       b.disabled = true;
       try {
         if (b.dataset.deshacer) await api("deshacer", {codigo: c.codigo});
         else await api("marcar", {codigo: c.codigo, tipo: b.dataset.t, en: new Date().toISOString()});
         verCaja(c.codigo);
       } catch (er) {
-        if (er instanceof SinRed && b.dataset.t) { encolar({codigo: c.codigo, tipo: b.dataset.t, en: new Date().toISOString()}); $("#cajaMsg").innerHTML = tarjetaResultado("cola", "Guardado sin señal: se sube solo"); }
-        else $("#cajaMsg").innerHTML = tarjetaResultado("mal", er.message);
+        if (er instanceof SinRed && b.dataset.t) {
+          encolar({id: nuevoId(), codigo: c.codigo, tipo: b.dataset.t, despacho_id: null, en: new Date().toISOString(), t: Date.now(), antes: c.estado});
+          $("#cajaMsg").innerHTML = tarjetaResultado("cola", "📶 Guardado sin señal: se sube solo");
+        } else $("#cajaMsg").innerHTML = tarjetaResultado("mal", er instanceof SinRed ? "Sin conexión: prueba de nuevo con señal." : er.message);
         b.disabled = false;
       }
     };
-  } catch (e) { fallo(el, e); }
+  } catch (e) { fallo(el, e, () => verCaja(codigo)); }
 }
 
 // ── recepción: por embarque, qué está en bodega y qué falta contra el packing ───────────────────
@@ -529,19 +860,21 @@ async function verRecepcion(el) {
   cargando(el);
   try {
     const embs = await api("embarques");
+    if (!embs.length) { el.innerHTML = `<p class="chico">No hay embarques con cajas todavía.</p>`; return; }
     let actual = guardado.get("embarque", embs[0]?.id);
     if (!embs.some((e) => e.id === actual)) actual = embs[0]?.id;
-    el.innerHTML = `<label>Embarque</label><select id="selEmb">${embs.map((e) => `<option value="${e.id}">${esc(e.nombre)} · ${e.total} cajas</option>`).join("")}</select><div id="detEmb" style="margin-top:12px"></div>`;
+    el.innerHTML = `<label for="selEmb">Embarque</label><select id="selEmb">${embs.map((e) => `<option value="${e.id}">${esc(e.nombre)} · ${e.total} cajas</option>`).join("")}</select><div id="detEmb" style="margin-top:12px"></div>`;
     $("#selEmb").value = actual;
-    const pintar = async () => {
-      const id = Number($("#selEmb").value); guardado.set("embarque", id);
-      const e = embs.find((x) => x.id === id), det = $("#detEmb");
-      det.innerHTML = `<p class="chico">Cargando cajas…</p>`;
-      const cajas = await api("embarque", {embarque_id: id});
+    let cajas = [], e = null;
+    const abiertos = new Set();   // qué listas desplegables estaban abiertas (se mantienen al repintar)
+    const render = () => {
+      const det = $("#detEmb"); if (!det) return;
+      det.querySelectorAll("details[data-k]").forEach((d) => d.open ? abiertos.add(d.dataset.k) : abiertos.delete(d.dataset.k));
       const porH = {};
       cajas.forEach((c) => { (porH[c.hospital] ??= {}); (porH[c.hospital][c.sku_jp] ??= []).push(c); });
-      const barra = (cs) => { const t = cs.length || 1; return `<div class="barra">${["entregada", "despachada", "recibida", "en_camino"].map((s) => `<i style="width:${100 * cs.filter((c) => c.estado === s).length / t}%;background:${COLOR[s]}"></i>`).join("")}</div>`; };
+      const barra = (cs) => { const t = cs.length || 1; return `<div class="barra" aria-hidden="true">${["entregada", "despachada", "recibida", "en_camino"].map((s) => `<i style="width:${100 * cs.filter((c) => c.estado === s).length / t}%;background:${COLOR[s]}"></i>`).join("")}</div>`; };
       const faltan = cajas.filter((c) => c.estado === "en_camino").length;
+      const puedeDeshacer = (c) => yo.rol === "admin" || c.recibida_por === yo.nombre;
       det.innerHTML = `<div class="tarjeta"><h3>${esc(e.nombre)}</h3>
         <div class="chico">${e.fecha_disponible_retiro ? "Disponible para retiro " + fecha(e.fecha_disponible_retiro) : e.fecha_eta ? "ETA " + fecha(e.fecha_eta) : ""}</div>
         ${barra(cajas)}
@@ -551,95 +884,152 @@ async function verRecepcion(el) {
         HOSPITALES.concat(Object.keys(porH).filter((h) => !HOSPITALES.includes(h))).filter((h) => porH[h]).map((h) => {
           const skus = Object.entries(porH[h]), todas = skus.flatMap(([, cs]) => cs);
           const rec = todas.filter((c) => c.estado !== "en_camino").length;
-          return `<div class="tarjeta"><div class="fila" style="justify-content:space-between"><h3 style="margin:0">${esc(h)}</h3><span class="chico">${rec} / ${todas.length} recibidas</span></div>${barra(todas)}
+          return `<div class="tarjeta"><div class="fila entre"><h3 style="margin:0">${esc(h)}</h3><span class="chico">${rec} / ${todas.length} recibidas</span></div>${barra(todas)}
             <ul class="lista">${skus.map(([sku, cs]) => {
               const r = cs.filter((c) => c.estado !== "en_camino");
+              const bodega = cs.filter((c) => c.estado === "recibida");
               const falta = cs.filter((c) => c.estado === "en_camino");
-              return `<li><div class="fila" style="justify-content:space-between"><b>${esc(sku)}</b><span>${r.length === cs.length ? "✅" : falta.length === cs.length ? "⬜" : "🟠"} ${r.length}/${cs.length}</span></div>
+              const k = `${h}|${sku}`;
+              return `<li><div class="fila entre"><b>${esc(sku)}</b><span>${r.length === cs.length ? "✅" : falta.length === cs.length ? "⬜" : "🟠"} ${r.length}/${cs.length}</span></div>
                 <div class="chico">${esc(cs[0].sku_compo)} · ${cs.reduce((s, c) => s + c.unidades, 0)} filtros</div>
-                ${falta.length && r.length ? `<details><summary>Faltan ${falta.length}: ver cuáles</summary><div class="chico">${falta.map((c) => `${esc(c.codigo)} (caja ${c.caja_n})`).join(" · ")}</div></details>` : ""}</li>`;
+                ${falta.length && r.length ? `<details data-k="${esc(k)}|f" ${abiertos.has(k + "|f") ? "open" : ""}><summary>Faltan ${falta.length}: ver cuáles</summary><div class="chico">${falta.map((c) => `${esc(c.codigo)} (caja ${c.caja_n})`).join(" · ")}</div></details>` : ""}
+                ${bodega.length ? `<details data-k="${esc(k)}|b" ${abiertos.has(k + "|b") ? "open" : ""}><summary>En bodega ${bodega.length}: ver o deshacer</summary>
+                  <ul class="lista cajas">${bodega.map((c) => `<li><div class="q"><b>${esc(c.codigo)}</b> · caja ${c.caja_n}<div class="chico">${c.recibida_por ? `${esc(c.recibida_por)} · ${hora(c.recibida_en)}` : ""}</div></div>
+                    ${puedeDeshacer(c) ? `<button class="btn sec mini" data-deshacer="${esc(c.codigo)}" aria-label="Deshacer la recepción de ${esc(c.codigo)}">↩︎ Deshacer</button>` : ""}</li>`).join("")}</ul></details>` : ""}</li>`;
             }).join("")}</ul></div>`;
-        }).join("");
+        }).join("") + `<p class="chico" id="recMsg" aria-live="polite"></p>`;
+    };
+    const pintar = async () => {
+      const id = Number($("#selEmb").value); guardado.set("embarque", id);
+      e = embs.find((x) => x.id === id);
+      const det = $("#detEmb");
+      det.innerHTML = `<p class="chico">Cargando cajas…</p>`;
+      try { cajas = await api("embarque", {embarque_id: id}); render(); }
+      catch (er) { fallo(det, er, pintar); }
     };
     $("#selEmb").onchange = pintar;
-    if (embs.length) pintar(); else el.innerHTML = `<p class="chico">No hay embarques con cajas todavía.</p>`;
-  } catch (e) { fallo(el, e); }
+    el.onclick = async (ev) => {
+      const b = ev.target.closest("button[data-deshacer]"); if (!b) return;
+      if (!dobleToque(b, "¿Seguro? Vuelve a «en camino»")) return;
+      b.disabled = true;
+      try {
+        const d = await api("deshacer", {codigo: b.dataset.deshacer});
+        actualizarMem(d);
+        const c = cajas.find((x) => x.codigo === d.codigo);
+        if (c) { c.estado = d.estado; c.recibida_por = d.recibida_por; c.recibida_en = d.recibida_en; }
+        tono("ya"); render();
+        const m = $("#recMsg"); if (m) m.textContent = `↩︎ ${d.codigo} volvió a «${ESTADO[d.estado]}».`;
+      } catch (er) { b.disabled = false; tono("mal"); avisarMal(`${b.dataset.deshacer}: ${er instanceof SinRed ? "sin señal, prueba de nuevo." : er.message}`); }
+    };
+    pintar();
+  } catch (e) { fallo(el, e, () => verRecepcion(el)); }
 }
 
 // ── viajes ─────────────────────────────────────────────────────────────────────────────────
 async function verViajes(el) {
+  el.onclick = null;
   cargando(el);
   try {
     const vs = await api("viajes");
     guardado.set("viajes", vs);
     el.innerHTML = (yo.rol === "admin" ? `<details class="tarjeta" id="nuevoViaje"><summary><b>＋ Nuevo viaje</b></summary>
-        <label>Hospital</label><select id="nvH">${HOSPITALES.map((h) => `<option>${h}</option>`).join("")}</select>
-        <label>Nombre del viaje</label><input id="nvC" placeholder="Alto Hospicio · viaje 1">
-        <label>Salida (opcional)</label><input id="nvS" type="date">
-        <label>Quiénes van (opcional)</label><input id="nvP" placeholder="Rodri + Jaime">
+        <label for="nvH">Hospital</label><select id="nvH">${HOSPITALES.map((h) => `<option>${h}</option>`).join("")}</select>
+        <label for="nvC">Nombre del viaje</label><input id="nvC" placeholder="Alto Hospicio · viaje 1">
+        <label for="nvS">Salida (opcional)</label><input id="nvS" type="date">
+        <label for="nvP">Quiénes van (opcional)</label><input id="nvP" placeholder="Rodri + Jaime">
         <button class="btn ancho" id="nvOk" style="margin-top:12px">Crear viaje</button><div id="nvMsg"></div></details>` : "") +
       (vs.length ? vs.map((v) => `<div class="tarjeta" data-v="${v.id}">
-        <div class="fila" style="justify-content:space-between"><h3 style="margin:0">${esc(v.hospital)} · ${esc(v.carga || "viaje " + v.id)}</h3><span class="pastilla ${v.estado === "entregado" ? "p-entregada" : ""}">${esc(v.estado)}</span></div>
+        <div class="fila entre"><h3 style="margin:0">${esc(v.hospital)} · ${esc(v.carga || "viaje " + v.id)}</h3><span class="pastilla ${v.estado === "entregado" ? "p-entregada" : ""}">${esc(ESTADO_VIAJE[v.estado] || v.estado)}</span></div>
         <div class="chico">${v.salida ? "Sale " + fecha(v.salida) + " · " : ""}${v.cajas} cajas · ${v.unidades} filtros · ${v.entregadas} entregadas${v.personas ? " · " + esc(v.personas) : ""}${v.guia_foto ? " · 📄 guía" : ""}</div>
         <button class="btn sec ancho" style="margin-top:8px" data-abrir="${v.id}">Ver cajas</button></div>`).join("")
         : `<p class="chico">${yo.rol === "chofer" ? "No tienes un viaje asignado." : "Todavía no hay viajes."}</p>`);
     if (yo.rol === "admin") $("#nvOk").onclick = async () => {
+      const b = $("#nvOk"); if (b.disabled) return;
+      b.disabled = true;
       try {
         if (!$("#nvC").value.trim()) throw new Error("Ponle nombre al viaje");
         await api("crear_viaje", {hospital: $("#nvH").value, carga: $("#nvC").value.trim(), salida: $("#nvS").value, personas: $("#nvP").value.trim()});
         verViajes(el);
-      } catch (e) { $("#nvMsg").innerHTML = tarjetaResultado("mal", e.message); }
+      } catch (e) { $("#nvMsg").innerHTML = tarjetaResultado("mal", e.message); b.disabled = false; }
     };
     el.onclick = (e) => { const b = e.target.closest("[data-abrir]"); if (b) verViaje(el, Number(b.dataset.abrir), vs.find((v) => v.id === Number(b.dataset.abrir))); };
-  } catch (e) { fallo(el, e); }
+  } catch (e) { fallo(el, e, () => verViajes(el)); }
 }
 
 async function verViaje(el, id, v) {
   el.onclick = null; cargando(el);
   try {
     const cajas = await api("viaje", {despacho_id: id});
+    cajas.forEach(actualizarMem);
     const pend = cajas.filter((c) => c.estado === "despachada").length;
     const puedeEntregar = yo.rol === "admin" || (yo.rol === "chofer" && yo.despacho_id === id);
+    // Deshacer: despachada → vuelve a bodega (admin y bodega); entregada → vuelve a despachada (admin y el chofer del viaje).
+    // El servidor revisa además que no-admin solo deshaga lo propio y dentro de 15 minutos.
+    const puedeDeshacer = (c) => yo.rol === "admin" ||
+      (c.estado === "despachada" && yo.rol === "bodega" && c.despachada_por === yo.nombre) ||
+      (c.estado === "entregada" && yo.rol === "chofer" && yo.despacho_id === id && c.entregada_por === yo.nombre);
     const porSku = {};
     cajas.forEach((c) => { (porSku[c.sku_jp] ??= []).push(c); });
+    const abiertos = new Set(guardado.get("viajeAbiertos", []));
     el.innerHTML = `<button class="btn sec" id="volver">← Viajes</button>
       <div class="tarjeta" style="margin-top:10px"><h2 style="margin:0">${esc(v.hospital)} · ${esc(v.carga || "viaje " + id)}</h2>
         <div class="chico">${cajas.length} cajas · ${cajas.reduce((s, c) => s + c.unidades, 0)} filtros · ${cajas.length - pend} entregadas</div>
-        ${puedeEntregar && pend ? `<button class="btn verde ancho" id="entregarTodo" style="margin-top:10px">🏥 Entregar las ${pend} cajas de una vez</button>` : ""}
-        ${puedeEntregar ? `<label style="margin-top:12px">📄 Foto de la guía firmada${v.guia_foto ? " (ya hay una; otra la reemplaza)" : ""}</label><input type="file" accept="image/*" capture="environment" id="guia">` : ""}
+        ${puedeEntregar && pend ? `<button class="btn verde ancho" id="entregarTodo" style="margin-top:10px">🏥 Entregar ${pend === 1 ? "la caja que falta" : `las ${pend} cajas de una vez`}</button>` : ""}
+        ${puedeEntregar ? `<label for="guiaFoto" style="margin-top:12px">📄 Foto de la guía firmada${v.guia_foto ? " (ya hay una; otra la reemplaza)" : ""}</label><input type="file" accept="image/*" capture="environment" id="guiaFoto">` : ""}
         ${yo.rol === "admin" && v.guia_foto ? `<button class="btn sec ancho" id="verGuia" style="margin-top:8px">Ver guía</button>` : ""}
-        <div id="vMsg"></div></div>
-      <div class="tarjeta"><h3>Cajas</h3><ul class="lista">${Object.entries(porSku).map(([s, cs]) => `<li><div class="fila" style="justify-content:space-between"><b>${esc(s)}</b><span class="chico">${cs.filter((c) => c.estado === "entregada").length}/${cs.length} entregadas</span></div>
-        <div class="chico">${cs.map((c) => `${c.estado === "entregada" ? "✅" : "🚚"} ${esc(c.codigo)}`).join(" · ")}</div></li>`).join("") || `<li class="chico">Sin cajas todavía: se cargan en Escanear → Despachar.</li>`}</ul></div>`;
+        <div id="vMsg" aria-live="polite"></div></div>
+      <div class="tarjeta"><h3>Cajas</h3><ul class="lista">${Object.entries(porSku).map(([s, cs]) => `<li>
+        <details data-k="${id}|${esc(s)}" ${abiertos.has(`${id}|${s}`) ? "open" : ""}><summary><span class="fila entre" style="display:inline-flex;width:calc(100% - 20px)"><b>${esc(s)}</b><span class="chico">${cs.filter((c) => c.estado === "entregada").length}/${cs.length} entregadas</span></span></summary>
+        <ul class="lista cajas">${cs.map((c) => `<li><span aria-hidden="true">${c.estado === "entregada" ? "✅" : "🚚"}</span><div class="q"><b>${esc(c.codigo)}</b> <span class="pastilla p-${c.estado}">${ESTADO[c.estado]}</span>
+          <div class="chico">${c.estado === "entregada" ? `${esc(c.entregada_por || "")} · ${hora(c.entregada_en)}` : `${esc(c.despachada_por || "")} · ${hora(c.despachada_en)}`}</div></div>
+          ${puedeDeshacer(c) ? `<button class="btn sec mini" data-deshacer="${esc(c.codigo)}" aria-label="Deshacer ${esc(c.codigo)}">↩︎ Deshacer</button>` : ""}</li>`).join("")}</ul></details></li>`).join("")
+        || `<li class="chico">Sin cajas todavía: se cargan en Escanear → Despachar.</li>`}</ul>
+        <p class="chico">↩︎ Deshacer una caja despachada la devuelve a bodega; una entregada vuelve a «despachada».</p></div>`;
     $("#volver").onclick = () => verViajes(el);
+    el.querySelectorAll("details[data-k]").forEach((d) => d.addEventListener("toggle", () => {
+      d.open ? abiertos.add(d.dataset.k) : abiertos.delete(d.dataset.k); guardado.set("viajeAbiertos", [...abiertos].slice(-40));
+    }));
+    el.onclick = async (e) => {
+      const b = e.target.closest("button[data-deshacer]"); if (!b) return;
+      const c = cajas.find((x) => x.codigo === b.dataset.deshacer);
+      if (!dobleToque(b, c?.estado === "entregada" ? "¿Seguro? Vuelve a despachada" : "¿Seguro? Vuelve a bodega")) return;
+      b.disabled = true;
+      try { const d = await api("deshacer", {codigo: b.dataset.deshacer}); actualizarMem(d); tono("ya"); verViaje(el, id, v); }
+      catch (er) { b.disabled = false; tono("mal"); avisarMal(`${b.dataset.deshacer}: ${er instanceof SinRed ? "sin señal, prueba de nuevo." : er.message}`); }
+    };
     if ($("#entregarTodo")) $("#entregarTodo").onclick = async () => {
       const b = $("#entregarTodo");
-      if (b.dataset.seguro !== "1") { b.dataset.seguro = "1"; b.textContent = `¿Seguro? Toca otra vez para entregar ${pend} cajas`; return; }
+      if (!dobleToque(b, `¿Seguro? Toca otra vez para entregar ${pend === 1 ? "1 caja" : pend + " cajas"}`)) return;
       b.disabled = true;
-      try { const r = await api("entregar_viaje", {despacho_id: id, en: new Date().toISOString()}); $("#vMsg").innerHTML = tarjetaResultado("ok", `✓ ${r.entregadas} cajas entregadas`); setTimeout(() => verViaje(el, id, v), 900); }
-      catch (e) { $("#vMsg").innerHTML = tarjetaResultado("mal", e.message); b.disabled = false; }
+      try { const r = await api("entregar_viaje", {despacho_id: id, en: new Date().toISOString()}); tono("ok"); $("#vMsg").innerHTML = tarjetaResultado("ok", `✓ ${r.entregadas} cajas entregadas`); setTimeout(() => verViaje(el, id, v), 900); }
+      catch (e) { $("#vMsg").innerHTML = tarjetaResultado("mal", e instanceof SinRed ? "Sin conexión: prueba de nuevo cuando haya señal." : e.message); b.disabled = false; }
     };
-    if ($("#guia")) $("#guia").onchange = async (e) => {
+    if ($("#guiaFoto")) $("#guiaFoto").onchange = async (e) => {
       const f = e.target.files[0]; if (!f) return;
       $("#vMsg").innerHTML = `<p class="chico">Subiendo foto…</p>`;
-      try { await api("guia", {despacho_id: id, imagen: await achicar(f)}); v.guia_foto = "ok"; $("#vMsg").innerHTML = tarjetaResultado("ok", "✓ Guía guardada"); }
+      try { await api("guia", {despacho_id: id, imagen: await achicar(f)}, {espera: 60000}); v.guia_foto = "ok"; $("#vMsg").innerHTML = tarjetaResultado("ok", "✓ Guía guardada"); }
+      catch (er) { $("#vMsg").innerHTML = tarjetaResultado("mal", er instanceof SinRed ? "Sin conexión: la foto no subió. Prueba de nuevo con señal." : er.message); }
+      e.target.value = "";
+    };
+    if ($("#verGuia")) $("#verGuia").onclick = async () => {
+      try { const r = await api("ver_guia", {despacho_id: id}); if (r.url) location.href = r.url; else $("#vMsg").innerHTML = tarjetaResultado("mal", "Este viaje no tiene guía todavía"); }
       catch (er) { $("#vMsg").innerHTML = tarjetaResultado("mal", er.message); }
     };
-    if ($("#verGuia")) $("#verGuia").onclick = async () => { const r = await api("ver_guia", {despacho_id: id}); if (r.url) location.href = r.url; };
-  } catch (e) { fallo(el, e); }
+  } catch (e) { fallo(el, e, () => verViaje(el, id, v)); }
 }
 
 function achicar(file, lado = 1600) {
   return new Promise((ok, mal) => {
-    const img = new Image();
+    const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
       const k = Math.min(1, lado / Math.max(img.width, img.height));
-      const c = document.createElement("canvas"); c.width = img.width * k; c.height = img.height * k;
+      const c = document.createElement("canvas"); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
       c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
       ok(c.toDataURL("image/jpeg", 0.8));
     };
-    img.onerror = () => mal(new Error("No pude leer la foto"));
-    img.src = URL.createObjectURL(file);
+    img.onerror = () => { URL.revokeObjectURL(url); mal(new Error("No pude leer la foto")); };
+    img.src = url;
   });
 }
 
@@ -649,17 +1039,19 @@ async function verPersonas(el) {
   try {
     const [gente, vs] = await Promise.all([api("usuarios"), api("viajes")]);
     const nomViaje = (id) => { const v = vs.find((x) => x.id === id); return v ? `${v.hospital} · ${v.carga}` : "viaje " + id; };
+    const abiertosV = vs.filter((v) => v.estado !== "entregado");
     el.innerHTML = `<details class="tarjeta" ${gente.length < 2 ? "open" : ""}><summary><b>＋ Invitar a alguien</b></summary>
-        <label>Nombre</label><input id="inN" placeholder="Rodri">
-        <label>Correo o teléfono (solo de referencia)</label><input id="inC">
-        <label>Rol</label><select id="inR"><option value="bodega">Bodega: recibe y despacha</option><option value="chofer">Chofer: solo entrega su viaje</option><option value="admin">Admin: todo</option></select>
-        <div id="inVBox" hidden><label>Viaje del chofer</label><select id="inV">${vs.filter((v) => v.estado !== "entregado").map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga)}</option>`).join("")}</select></div>
+        <label for="inN">Nombre</label><input id="inN" placeholder="Rodri">
+        <label for="inC">Correo o teléfono (solo de referencia)</label><input id="inC">
+        <label for="inR">Rol</label><select id="inR"><option value="bodega">Bodega: recibe y despacha</option><option value="chofer">Chofer: solo entrega su viaje</option><option value="admin">Admin: todo</option></select>
+        <div id="inVBox" hidden><label for="inV">Viaje del chofer</label>${abiertosV.length ? `<select id="inV">${abiertosV.map((v) => `<option value="${v.id}">${esc(v.hospital)} · ${esc(v.carga)}</option>`).join("")}</select>` : `<p class="chico">Primero crea el viaje en «Viajes».</p>`}</div>
         <button class="btn ancho" id="inOk" style="margin-top:12px">Crear acceso</button><div id="inMsg"></div></details>
       <div id="acceso"></div>
+      <div id="perMsg" aria-live="polite"></div>
       <div class="tarjeta"><h3>Personas</h3><ul class="lista">${gente.map((p) => `<li>
-        <div class="fila" style="justify-content:space-between"><b>${esc(p.nombre)}</b><span class="pastilla">${ROL[p.rol]}${p.activo ? "" : " · desactivada"}</span></div>
+        <div class="fila entre"><b>${esc(p.nombre)}</b><span class="pastilla">${ROL[p.rol]}${p.activo ? "" : " · desactivada"}</span></div>
         <div class="chico">${[p.contacto, p.despacho_id && nomViaje(p.despacho_id)].filter(Boolean).map(esc).join(" · ")}</div>
-        ${p.id !== yo.id ? `<div class="fila" style="margin-top:6px"><button class="btn sec" data-cod="${p.id}" data-n="${esc(p.nombre)}">Nuevo código</button>${p.activo ? `<button class="btn sec" data-off="${p.id}">Desactivar</button>` : ""}</div>` : ""}</li>`).join("")}</ul></div>`;
+        ${p.id !== yo.id ? `<div class="fila" style="margin-top:6px"><button class="btn sec mini" data-cod="${p.id}" data-n="${esc(p.nombre)}">Nuevo código</button>${p.activo ? `<button class="btn sec mini" data-off="${p.id}">Desactivar</button>` : ""}</div>` : ""}</li>`).join("")}</ul></div>`;
     $("#inR").onchange = () => { $("#inVBox").hidden = $("#inR").value !== "chofer"; };
     const mostrarAcceso = (nombre, r) => {
       const texto = `Hola ${nombre}: este es tu acceso a la app Cajas JP de JPMetals (recepción y despacho de cajas).\n\n` +
@@ -672,7 +1064,7 @@ async function verPersonas(el) {
         <p class="chico">Mándaselo tú por WhatsApp. Sirve una vez y vence en 7 días; esta pantalla no lo vuelve a mostrar.</p>
         <div class="fila"><button class="btn" id="compartir">Compartir…</button><button class="btn sec" id="copiar">Copiar</button></div></div>`;
       $("#compartir").onclick = () => navigator.share ? navigator.share({text: texto}).catch(() => {}) : $("#copiar").click();
-      $("#copiar").onclick = () => navigator.clipboard.writeText(texto).then(() => { $("#copiar").textContent = "✓ Copiado"; });
+      $("#copiar").onclick = () => (navigator.clipboard?.writeText(texto) || Promise.reject()).then(() => { $("#copiar").textContent = "✓ Copiado"; }, () => { $("#copiar").textContent = "No pude copiar: usa Compartir"; });
       $("#acceso").scrollIntoView({behavior: "smooth"});
     };
     $("#inOk").onclick = async () => {
@@ -680,21 +1072,21 @@ async function verPersonas(el) {
       $("#inOk").disabled = true;
       try {
         const nombre = $("#inN").value.trim();
-        const r = await api("invitar", {nombre, contacto: $("#inC").value.trim(), rol: $("#inR").value, despacho_id: $("#inR").value === "chofer" ? Number($("#inV").value) || null : null});
+        if (!nombre) throw new Error("Escribe el nombre");
+        const r = await api("invitar", {nombre, contacto: $("#inC").value.trim(), rol: $("#inR").value, despacho_id: $("#inR").value === "chofer" ? Number($("#inV")?.value) || null : null});
         await verPersonas(el); mostrarAcceso(nombre, r);
       } catch (e) { $("#inMsg").innerHTML = tarjetaResultado("mal", e.message); $("#inOk").disabled = false; }
     };
     el.onclick = async (e) => {
       const b = e.target.closest("button[data-cod],button[data-off]"); if (!b) return;
+      if (b.dataset.off && !dobleToque(b)) return;
+      b.disabled = true;
       try {
-        if (b.dataset.cod) { const r = await api("nuevo_codigo", {id: Number(b.dataset.cod)}); mostrarAcceso(b.dataset.n, r); }
-        else {
-          if (b.dataset.seguro !== "1") { b.dataset.seguro = "1"; b.textContent = "¿Seguro? Toca otra vez"; return; }
-          await api("desactivar", {id: Number(b.dataset.off)}); verPersonas(el);
-        }
-      } catch (er) { alert(er.message); }
+        if (b.dataset.cod) { const r = await api("nuevo_codigo", {id: Number(b.dataset.cod)}); mostrarAcceso(b.dataset.n, r); b.disabled = false; }
+        else { await api("desactivar", {id: Number(b.dataset.off)}); verPersonas(el); }
+      } catch (er) { b.disabled = false; $("#perMsg").innerHTML = tarjetaResultado("mal", er.message); }
     };
-  } catch (e) { fallo(el, e); }
+  } catch (e) { fallo(el, e, () => verPersonas(el)); }
 }
 
 // ── inicio ──────────────────────────────────────────────────────────────────────────────────
