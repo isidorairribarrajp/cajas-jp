@@ -305,10 +305,15 @@ function pararCamara() {
 }
 function codigoDe(texto) {
   const t = String(texto).trim();
-  try { const u = new URL(t); const c = u.searchParams.get("c"); if (c) return c.toUpperCase(); } catch {}
+  try { const u = new URL(t); const c = (u.searchParams.get("c") || "").toUpperCase(); if (/^(E\d+-\d{4}|PRUEBA)$/.test(c)) return c; } catch {}
   const m = /\bE\d+-\d{4}\b/i.exec(t);
   if (m) return m[0].toUpperCase();
   if (/\bc=PRUEBA\b|^PRUEBA$/i.test(t)) return "PRUEBA";   // QR de prueba: no toca ninguna caja
+  // La pistola «escribe» como teclado en inglés: si el teléfono tiene el teclado en español, «-» llega como «'»
+  // o «?», «=» como «¡», etc. Se busca el código igual, con cualquier signo entre las dos partes.
+  const m2 = /E(\d{1,2})[^A-Za-z0-9]{1,2}(\d{4})(?!\d)/i.exec(t);
+  if (m2) return `E${m2[1]}-${m2[2]}`;
+  if (/PRUEBA/i.test(t)) return "PRUEBA";
   return /^JP-[A-Z0-9]+-E\d+-\d+\|caja\s*\d+/i.test(t) ? t : null;   // QR de texto de las primeras etiquetas
 }
 async function abrirCamara(video, estado, alLeer) {
@@ -365,6 +370,9 @@ function verEscanear(el) {
   el.innerHTML = `
     <div class="modos" id="modos">${modos.map((m) => `<button data-m="${m}">${{recibida: "📥 Recibir", despachada: "🚚 Despachar", entregada: "🏥 Entregar"}[m]}</button>`).join("")}</div>
     <div id="pistolaEstado" class="pastilla" style="display:block;text-align:center;padding:8px;margin-bottom:8px;font-size:14px"></div>
+    <input id="pistolaIn" inputmode="none" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
+      placeholder="🔫 Toca aquí para activar la pistola" aria-label="Lectura de la pistola"
+      style="text-align:center;margin-bottom:8px;font-size:15px;border:2px dashed #d6d3d1">
     <div id="eligeViaje" hidden><label>Viaje</label><select id="selViaje"></select></div>
     <div id="visor"><video muted></video><div class="marco"></div><div class="estado" id="camEstado">Abriendo cámara…</div></div>
     <div class="fila" style="flex-wrap:nowrap"><input id="manual" placeholder="o escribe el código: E1-0427" autocapitalize="characters"><button class="btn sec" id="manualOk">OK</button></div>
@@ -415,27 +423,40 @@ function verEscanear(el) {
   $("#manualOk").onclick = () => { const c = codigoDe($("#manual").value) || $("#manual").value.trim().toUpperCase(); if (c) { leer(c); $("#manual").value = ""; } };
   $("#manual").addEventListener("keydown", (e) => { if (e.key === "Enter") $("#manualOk").click(); });
   abrirCamara($("#visor video"), $("#camEstado"), leer);
-  // Pistola lectora Bluetooth (modo teclado): escribe el link del QR + Enter muy rápido. Se capta aunque no
-  // haya un campo enfocado, mientras esta pantalla esté abierta. Una página no puede ver si la pistola está
-  // emparejada: se marca «conectada» cuando llega la primera lectura (ráfaga de teclas + Enter).
+  // Pistola lectora Bluetooth (modo teclado): «escribe» el link del QR muy rápido. Hay pistolas que terminan con
+  // Enter y otras que no (de fábrica muchas Netum no): se procesa con Enter o cuando paran las teclas (250 ms).
+  // Lo más seguro es el campo «Toca aquí para activar la pistola» (no abre el teclado de la pantalla); sin foco
+  // también se capta. Una página no puede ver si la pistola está emparejada: se marca al llegar la 1ª lectura.
   pintarPistola();
-  let buf = "", ultimaTecla = 0, rafaga = 0;
+  const campo = $("#pistolaIn");
+  let buf = "", ultimaTecla = 0, rafaga = 0, espera = null;
+  const procesar = () => {
+    clearTimeout(espera); espera = null;
+    const texto = (buf || campo.value).trim();
+    const esPistola = rafaga >= 6 || campo.value.length >= 6;
+    buf = ""; rafaga = 0; campo.value = "";
+    if (!esPistola || !texto) return;
+    guardado.set("pistolaVista", Date.now()); pintarPistola();
+    const c = codigoDe(texto);
+    if (c) leer(c);
+    else $("#ultimo").innerHTML = tarjetaResultado("mal", "🔫 La pistola leyó algo, pero no es una caja", null,
+      `<div class="chico" style="word-break:break-all">Leí: ${esc(texto.slice(0, 120))}</div>`);
+  };
+  campo.addEventListener("focus", () => { campo.placeholder = "🔫 Pistola activa: dispara al QR"; campo.style.borderColor = "var(--ok)"; });
+  campo.addEventListener("blur", () => { campo.placeholder = "🔫 Toca aquí para activar la pistola"; campo.style.borderColor = "#d6d3d1"; });
+  campo.addEventListener("input", () => { clearTimeout(espera); espera = setTimeout(procesar, 250); });
   pistola = (e) => {
     if (pestaña !== "escanear") return;
+    if (e.target === campo) {
+      if (e.key === "Enter") { e.preventDefault(); procesar(); }
+      return;
+    }
+    if (e.target.matches?.("input,select,textarea")) return;   // el campo de código manual se maneja solo
     const ahora = Date.now();
-    if (ahora - ultimaTecla > 120) { buf = ""; rafaga = 0; }
+    if (ahora - ultimaTecla > 150) { buf = ""; rafaga = 0; }
     ultimaTecla = ahora;
-    if (e.key === "Enter") {
-      const esPistola = rafaga >= 6;
-      const c = codigoDe(buf);
-      buf = ""; rafaga = 0;
-      if (esPistola) {
-        guardado.set("pistolaVista", Date.now()); pintarPistola();
-        if (e.target.matches("input,select,textarea")) { e.preventDefault(); e.target.value = ""; }
-        if (c) leer(c);
-        else $("#ultimo").innerHTML = tarjetaResultado("ya", "🔫 La pistola funciona", null, `<div class="chico">Pero ese código no es de una caja de JPMetals.</div>`);
-      }
-    } else if (e.key.length === 1) { buf += e.key; rafaga++; }
+    if (e.key === "Enter") { e.preventDefault(); procesar(); }
+    else if (e.key && e.key.length === 1) { buf += e.key; rafaga++; clearTimeout(espera); espera = setTimeout(procesar, 250); }
   };
 }
 function pintarPistola() {
